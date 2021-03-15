@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson_v0.04.sh 
 # Date: 2021-03-15
-# Version 0.04 by Marc Bayer
+# Version 0.04b by Marc Bayer
 #
 # Script for video live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
@@ -211,6 +211,11 @@ OVL1_POSITION_Y=100
 OVL1_SIZE_X=640
 OVL1_SIZE_Y=320
 
+# For testing purpose switch the av pipeline output to filesink. It's very important to verify the
+# output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
+# gst-launch-1.0 $1 $MUXER name=mux \
+# queue \
+# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
 gst-launch-1.0 $1 $MUXER streamable=true name=mux \
 ! tee name=container0 \
 ! queue \
