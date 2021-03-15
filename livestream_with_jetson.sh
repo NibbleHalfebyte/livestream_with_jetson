@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson_v0.04.sh 
 # Date: 2021-03-15
-# Version 0.04b by Marc Bayer
+# Version 0.04d by Marc Bayer
 #
 # Script for video live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
@@ -24,8 +24,76 @@
 #
 # v4l2-ctl -d /dev/video0 --list-formats-ext
 
+# Create some files
+CONFIG_DIR=~/.config/livestream_with_jetson_conf
+STREAM_KEY_FILE=live_stream_with_jetson_stream.key
+
+# Clean terminal
+reset
+# Delete last gstreamer log
+rm $CONFIG_DIR/gstreamer-debug-out.log
+# Check if configuration directory exists
+if [ ! -e $CONFIG_DIR ]; then
+mkdir $CONFIG_DIR
+echo "\nConfig directory created in:"
+echo "\t$CONFIG_DIR\n"
+elif [ $CONFIG_DIR ]; then
+echo "\nConfig directory exists:"
+echo "\t$CONFIG_DIR"
+fi
+
+# Check if a stream key file exists
+if [ ! -e $CONFIG_DIR/$STREAM_KEY_FILE ]; then
+echo "\nStream key not found in"
+echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
+# Create empty stream key file
+touch $CONFIG_DIR/$STREAM_KEY_FILE
+chmod o-r $CONFIG_DIR/$STREAM_KEY_FILE
+elif [ $CONFIG_DIR/$STREAM_KEY_FILE ]; then
+echo "\nStream key found in:"
+echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
+fi
+
+# Check if stream key is empty
+if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
+/usr/bin/chromium-browser "https://www.twitch.tv/login" &
+sleep 1
+echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
+echo "The key will be saved in this file: $STREAM_KEY_FILE"
+echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
+echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
+read CREATE_STREAM_KEY
+echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
+else
+echo "FILE WITH STREAM KEY $STREAM_KEY_FILE"
+echo "\tWAS FOUND IN $CONFIG_DIR"
+fi
+
+while [ true ]; do
+echo "\nDo you want to (re)enter a new stream key?"
+echo "Enter 'YES' (in upper case) or 'no'."
+read CHANGE_KEY
+case $CHANGE_KEY in
+	YES) /usr/bin/chromium-browser "https://www.twitch.tv/login" &
+	     sleep 1
+	     echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
+	     echo "The key will be saved in this file: $STREAM_KEY_FILE"
+	     echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
+	     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
+	     rm $CONFIG_DIR/$STREAM_KEY_FILE
+	     touch $CONFIG_DIR/$STREAM_KEY_FILE
+	     read NEW_STREAM_KEY
+	     echo $NEW_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
+	     break
+	;;
+	no) break
+	;;
+esac
+done
+
 # Stream key for Twitch (or FB, YT (not tested))
-STREAM_KEY="<your_streaming_key>"
+STREAM_KEY=$(cat $CONFIG_DIR/$STREAM_KEY_FILE)
+#echo "(For debugging only!) Your stream key is: $STREAM_KEY\n"
 
 # Twitch server for your country, see https://stream.twitch.tv/ingests/
 # e. g. Berlin, Europe, rtmp://ber.contribute.live-video.net/app/
@@ -46,9 +114,9 @@ echo
 done
 
 while [ true ] ; do
-echo "Choose this $V4L2SRC_DEVICE Video for Linux device and"
+echo "Use this $V4L2SRC_DEVICE Video for Linux device and"
 echo "write 'yes' and enter or write the path to another"
-echo "device, e. g. /dev/video1\n"
+echo "device, e. g. '/dev/video1' and enter.\n"
 read OTHER_V4L2SRC_DEVICE
 if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
 echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
@@ -97,22 +165,24 @@ echo "\tScreen aspect ratio: $SCREEN_AR_X:$SCREEN_AR_Y\n"
 # Crop image in absolute screen coordinates
 CROPPED_SCREEN_WIDTH=$( echo "scale=0; $SCREEN_WIDTH * 0.965" | bc -l )
 CROPPED_SCREEN_WIDTH=$((${CROPPED_SCREEN_WIDTH%.*}))
-echo "Safe area cropped input width: $CROPPED_SCREEN_WIDTH"
 CROPPED_SCREEN_HEIGHT=$( echo "scale=0; $SCREEN_HEIGHT * 0.965" | bc -l )
 CROPPED_SCREEN_HEIGHT=$((${CROPPED_SCREEN_HEIGHT%.*}))
-echo "Safe area cropped input height: $CROPPED_SCREEN_HEIGHT"
 CROP_X0=$( echo "scale=0; ( $SCREEN_WIDTH - $CROPPED_SCREEN_WIDTH ) * 0.5" | bc -l )
 CROP_X0=$((${CROP_X0%.*}))
-echo "X0: $CROP_X0"
 CROP_Y0=$( echo "scale=0; ( $SCREEN_HEIGHT - $CROPPED_SCREEN_HEIGHT ) * 0.5" | bc -l )
 CROP_Y0=$((${CROP_Y0%.*}))
-echo "Y0: $CROP_Y0"
 CROP_X1=$( echo "scale=0; $CROPPED_SCREEN_WIDTH + $CROP_X0" | bc -l )
 CROP_X1=$((${CROP_X1%.*}))
-echo "X1: $CROP_X1"
 CROP_Y1=$( echo "scale=0; $CROPPED_SCREEN_HEIGHT + $CROP_Y0" | bc -l )
 CROP_Y1=$((${CROP_Y1%.*}))
-echo "Y1: $CROP_Y1"
+# Show cropping values
+echo "Screen cropped to:"
+echo "\tUpper left corner coordinates"
+echo "\tX0=$CROP_X0, Y0=$CROP_Y0\n"
+echo "\t\tLower right corner coordinates"
+echo "\t\tX1=$CROP_X1, Y1=$CROP_Y1\n"
+echo "\tScreen safe area in width cropped to: $CROPPED_SCREEN_WIDTH"
+echo "\tScreen safe area in height cropped to: $CROPPED_SCREEN_HEIGHT\n"
 
 # Output settings
 DISPLAY_WIDTH_MAIN=1920
@@ -213,13 +283,14 @@ OVL1_SIZE_Y=320
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
-# gst-launch-1.0 $1 $MUXER name=mux \
-# queue \
-# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
-gst-launch-1.0 $1 $MUXER streamable=true name=mux \
-! tee name=container0 \
+
+# gst-launch-1.0 $1 $MUXER streamable=true name=mux \
+# ! tee name=container0 \
+# ! queue \
+# ! rtmpsink location="${LIVE_SERVER}${STREAM_KEY}?bandwidth_test=false" sync=false async=false \
+gst-launch-1.0 $1 $MUXER name=mux \
 ! queue \
-! rtmpsink location="${LIVE_SERVER}${STREAM_KEY}?bandwidth_test=false" sync=false async=false \
+! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
 \
 v4l2src \
 	brightness=$BRIGHTNESS \
@@ -276,21 +347,28 @@ audiosrc0. \
 ! pulsesink mute=true \
 	sync=false \
 	async=false \
-&
-#\
-#container0. \
-#! queue \
-#! filesink location="/media/marc/data/video/gamecapture/test/video.mp4" \
-#&
+> $CONFIG_DIR/gstreamer-debug-out.log &
+# \
+# container0. \
+# ! queue \
+# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4" \
+# > $CONFIG_DIR/gstreamer-debug-out.log &
 
-#Get the PID of the gestreamer pipeline
+# Get the PID of the gestreamer pipeline
 PID_GSTREAMER_PIPELINE=$!
 
-# Read key press for stopping gestreamer pipeline
 sleep 1
-echo "Streaming started\n"
+echo "\nWriting GStreamer debug log into:"
+echo "\t$CONFIG_DIR/gstreamer-debug-out.log"
+
+# Pipline and stream started
+if [ `pidof gst-launch-1.0` = $PID_GSTREAMER_PIPELINE ]; then
+echo "\n\tYOU'RE STREAM IS NOW ONLINE & LIVE!\n"
+fi
+
+# Read key press for stopping gestreamer pipeline
 while [ true ] ; do
-echo "\tWrite the word 'quit' and enter for stopping the stream!\n"
+echo "\tWrite the word 'quit' and enter to stop the stream!\n"
 read QUIT_STREAM
 if [ "${QUIT_STREAM}" = "quit" ]; then
 echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN!\n"
