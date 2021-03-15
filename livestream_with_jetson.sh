@@ -25,7 +25,7 @@
 # v4l2-ctl -d /dev/video0 --list-formats-ext
 
 # Stream key for Twitch (or FB, YT (not tested))
-STREAM_KEY="<your_streaming_key"
+STREAM_KEY="<your_streaming_key>"
 
 # Twitch server for your country, see https://stream.twitch.tv/ingests/
 # e. g. Berlin, Europe, rtmp://ber.contribute.live-video.net/app/
