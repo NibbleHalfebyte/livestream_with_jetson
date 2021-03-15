@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson_v0.04.sh 
 # Date: 2021-03-15
-# Version 0.04 by Marc Bayer
+# Version 0.04b by Marc Bayer
 #
 # Script for video live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
