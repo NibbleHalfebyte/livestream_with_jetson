@@ -211,6 +211,11 @@ OVL1_POSITION_Y=100
 OVL1_SIZE_X=640
 OVL1_SIZE_Y=320
 
+# For testing purpose switch the av pipeline output to filesink. It's very important to verify the
+# output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
+# gst-launch-1.0 $1 $MUXER name=mux \
+# queue \
+# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
 gst-launch-1.0 $1 $MUXER streamable=true name=mux \
 ! tee name=container0 \
 ! queue \
