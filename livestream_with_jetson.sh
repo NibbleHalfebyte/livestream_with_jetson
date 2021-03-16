@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson_v0.04.sh 
 # Date: 2021-03-16
-# Version 0.04f by Marc Bayer
+# Version 0.04g by Marc Bayer
 #
 # Script for game captue live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
@@ -15,17 +15,24 @@
 #	transfer rate to 30 megabytes/s!
 #	For stereo sound with pulsaudio try Stary's blog:
 #	https://9net.org/.../hdmi-capture-without-breaking-the-bank/
-
+#
+# List capabilties of v4l2 device, e. g. /dev/video0
 # v4l2-ctl -d /dev/video0 --list-formats-ext
+# List usb devices
+# lsusb
+# List input resolutions, e. g. usb device 001:005
+# lsusb -s 001:005 -v | egrep "Width|Height"
 
 # File variables
 CONFIG_DIR=~/.config/livestream_with_jetson_conf
 STREAM_KEY_FILE=live_stream_with_jetson_stream.key
 INGEST_SERVER_LIST=ingest_server.lst
 INGEST_SERVER_URI=ingest_server.uri
+VIDEO_CONFIG_FILE=videoconfig.cfg
 
 # Clean terminal
 reset
+
 # Delete last gstreamer log
 rm $CONFIG_DIR/gstreamer-debug-out.log
 # Check if configuration directory exists
@@ -50,6 +57,18 @@ elif [ $CONFIG_DIR/$STREAM_KEY_FILE ]; then
 	echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
 fi
 
+# Check if ingest server uri file exists
+if [ ! -e $CONFIG_DIR/$INGEST_SERVER_URI ]; then
+	echo "\nServer URI file not found in:"
+	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
+	# Create empty server URI file
+	touch $CONFIG_DIR/$INGEST_SERVER_URI
+	chmod o-r $CONFIG_DIR/$INGEST_SERVER_URI
+elif [ $CONFIG_DIR/$INGEST_SERVER_URI ]; then
+	echo "\nServer URI file found in:"
+	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
+fi
+
 # Check if stream key is empty
 if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
 	/usr/bin/chromium-browser "https://www.twitch.tv/login" &
@@ -57,7 +76,7 @@ if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
 	echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
 	echo "The key will be saved in this file: $STREAM_KEY_FILE"
 	echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
-	echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
+	echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:"
 	read CREATE_STREAM_KEY
 	echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
 else
@@ -67,15 +86,16 @@ fi
 
 while [ true ]; do
 	echo "\nDo you want to (re)enter a new stream key?"
-	echo "Enter 'YES' (in upper-case) or 'no'."
+	echo "ENTER: 'YES' (in upper-case) or 'no'."
 	read CHANGE_KEY
+	echo
 	case $CHANGE_KEY in
 		YES) /usr/bin/chromium-browser "https://www.twitch.tv/login" &
 		     sleep 1
 		     echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
 		     echo "The key will be saved in this file: $STREAM_KEY_FILE"
 		     echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
-		     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
+		     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:\n"
 		     rm $CONFIG_DIR/$STREAM_KEY_FILE
 		     touch $CONFIG_DIR/$STREAM_KEY_FILE
 		     read NEW_STREAM_KEY
@@ -93,18 +113,6 @@ STREAM_KEY=$(cat $CONFIG_DIR/$STREAM_KEY_FILE)
 
 # Twitch server for your country, see https://stream.twitch.tv/ingests/
 # Search for 'ingest_server.lst', comes with the git repository
-
-# Check if ingest server uri file exists
-if [ ! -e $CONFIG_DIR/$INGEST_SERVER_URI ]; then
-	echo "\nServer URI file not found in:"
-	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
-	# Create empty server URI file
-	touch $CONFIG_DIR/$INGEST_SERVER_URI
-	chmod o-r $CONFIG_DIR/$INGEST_SERVER_URI
-elif [ $CONFIG_DIR/$INGEST_SERVER_URI ]; then
-	echo "\nServer URI file found in:"
-	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
-fi
 
 # Copy ingest server list to config directory
 while [ ! `find $CONFIG_DIR -name $INGEST_SERVER_LIST 2> /dev/null` ]; do
@@ -124,8 +132,10 @@ done
 if [ -s $CONFIG_DIR/$INGEST_SERVER_URI ]; then
 	while [ true ]; do
 		echo "Do you want to change the stream ingest server from your last session"
-		echo "to another server? Please, enter 'YES' (in upper-case) or 'no':\n"
+		echo "to another server?"
+		echo "ENTER: 'YES' (in upper-case) or 'no' and press RETURN:"
 		read CHANGE_INGEST_SERVER_URI
+		echo
 		case $CHANGE_INGEST_SERVER_URI in
 			YES) rm $CONFIG_DIR/$INGEST_SERVER_URI
 			touch $CONFIG_DIR/$INGEST_SERVER_URI
@@ -147,7 +157,7 @@ if [ `find $CONFIG_DIR -empty -name $INGEST_SERVER_URI` ]; then
 
 	while [ true ]; do
 		echo "Choose a number from the server list for your region,"
-		echo "e. g. type '51' and enter:"
+		echo "ENTER: Write the number before the server, e. g. 51, and press RETURN."
 		read SERVER_NUMBER
 		# Strings for the server uri
 		NET_PROTOCOL_STR="rtmp://"
@@ -164,9 +174,22 @@ fi
 LIVE_SERVER=$(cat $CONFIG_DIR/$INGEST_SERVER_URI)
 echo "Server set to: $LIVE_SERVER\n"
 
-echo "\nInput and output set to:\n"
+#echo "\nInput and output set to:\n"
+
+# Check if a video config file exists
+if [ ! -e $CONFIG_DIR/$VIDEO_CONFIG_FILE ]; then
+	echo "\nVideo config file not found in:"
+	echo "\t$CONFIG_DIR/$VIDEO_CONFIG_FILE\n"
+	# Create empty video config key file
+	touch $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	chmod o-r $CONFIG_DIR/$VIDEO_CONFIG_FILE
+elif [ $CONFIG_DIR/$VIDEO_CONFIG_FILE ]; then
+	echo "\nVideo config file found in:"
+	echo "\t$CONFIG_DIR/$VIDEO_CONFIG_FILE\n"
+fi
 
 # Video capture sources
+
 echo "List of capture devices:"
 for V4L2SRC_DEVICE in /dev/video* ; do
 	echo "\t$V4L2SRC_DEVICE\n"
@@ -174,38 +197,96 @@ for V4L2SRC_DEVICE in /dev/video* ; do
 	echo
 done
 
+# Create default video config and print results
+LAST_CONFIG=1920x1080
+# and parse current config file
+if ( grep -q last.config $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	TMP_LAST_CONFIG=$(awk '$1 == "last.config" { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	eval "LAST_CONFIG=\${TMP_LAST_CONFIG}"
+else
+	# For initialization with empty videoconfig.cfg only
+	echo "last.config ${LAST_CONFIG}" > $CONFIG_DIR/$VIDEO_CONFIG_FILE
+fi
+
+if ( grep -q "videodev.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	TMP_V4L2SRC_DEVICE=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "videodev." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	eval "V4L2SRC_DEVICE=\${TMP_V4L2SRC_DEVICE}"
+else
+	echo "videodev.${LAST_CONFIG} ${V4L2SRC_DEVICE}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+fi
+
+if ( grep -q "screenres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	TMP_SCREEN_RESOLUTION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "screenres." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION}"
+else
+	echo "screenres.${LAST_CONFIG} ${LAST_CONFIG}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	SCREEN_RESOLUTION=$LAST_CONFIG
+fi
+
+if ( grep -q "brightness.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	BRIGHTNESS=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "brightness." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "brightness.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	BRIGHTNESS=0
+fi
+
+if ( grep -q "contrast.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	CONTRAST=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "contrast." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "contrast.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	CONTRAST=0
+fi
+
+if ( grep -q "hue.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	HUE=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "hue." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "hue.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	HUE=0
+fi
+
+if ( grep -q "saturation.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	SATURATION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "saturation." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "saturation.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	SATURATION=0
+fi
+
+echo "Current settings:"
+echo "\tVideo input:"
+echo "\t\tVideo input device=$V4L2SRC_DEVICE"
+echo "\t\tVideo input resolution=$SCREEN_RESOLUTION"
+echo "\tPicture settings:"
+echo "\t\tBrightness=$BRIGHTNESS"
+echo "\t\tContrast=$CONTRAST"
+echo "\t\tHue=$HUE"
+echo "\t\tSaturation=$SATURATION\n"
+
 while [ true ] ; do
-	echo "Use this $V4L2SRC_DEVICE Video for Linux device and"
-	echo "write 'yes' and enter or write the path to another"
-	echo "device, e. g. '/dev/video1' and enter.\n"
+	echo "Do you want to use this video device for main video in or another device?"
+	echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
+	echo "\tCurrent MAIN VIDEO IN set to: $V4L2SRC_DEVICE\n"
+	echo "ENTER: 'yes' or the path to another device."
 	read OTHER_V4L2SRC_DEVICE
 	if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
 		echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
 		break
-	fi
-	if [ "${OTHER_V4L2SRC_DEVICE}" = "/dev/video1" ]; then
+	else
 		eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
+		sed -i '/videodev/d' $CONFIG_DIR/$VIDEO_CONFIG_FILE
+		echo "videodev $V4L2SRC_DEVICE" > $CONFIG_DIR/$VIDEO_CONFIG_FILE
 		echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
 		break
 	fi
 done
 
+exit
+
+echo "Supported formats for video device $V4L2SRC_DEVICE:"
+v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
+
 # Audio capture sources
 echo "List of audio devices:"
 arecord -L | grep ^hw:
-echo
-
-# Picture settings
-BRIGHTNESS=0
-CONTRAST=0
-HUE=0
-SATURATION=0
-
-echo "Picture settings:"
-echo "\tBrightness=$BRIGHTNESS"
-echo "\tContrast=$CONTRAST"
-echo "\tHue=$HUE"
-echo "\tSaturation=$SATURATION\n"
 
 # Input settings
 PIXEL_ASPECT_RATIO="1:1"
@@ -418,7 +499,7 @@ audiosrc0. \
 # Get the PID of the gestreamer pipeline
 PID_GSTREAMER_PIPELINE=$!
 
-sleep 1
+sleep 2
 echo "\nWriting GStreamer debug log into:"
 echo "\t$CONFIG_DIR/gstreamer-debug-out.log"
 
@@ -429,10 +510,11 @@ fi
 
 # Read key press for stopping gestreamer pipeline
 while [ true ] ; do
-	echo "\tWrite the word 'quit' and enter to stop the stream!\n"
+	echo "\tWrite the word 'quit' and enter to stop the stream!"
+	echo "\tENTER: 'quit' and RETURN\n"
 	read QUIT_STREAM
 	if [ "${QUIT_STREAM}" = "quit" ]; then
-		echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN!\n"
+		echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN AND RETURN!\n"
 		read REALLY_QUIT_STREAM
 			if [ "${REALLY_QUIT_STREAM}" = "quit" ]; then
 				break
