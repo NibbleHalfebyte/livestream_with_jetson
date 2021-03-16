@@ -1,32 +1,28 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson_v0.04.sh 
-# Date: 2021-03-15
-# Version 0.04d by Marc Bayer
+# Date: 2021-03-16
+# Version 0.04f by Marc Bayer
 #
-# Script for video live streaming to Twitch, YT, FB
+# Script for game captue live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
 #
 # Usage: jetson_nano2livestream_twitch.sh
-#	Exchange <your_live_streaming_key> with your Twitch stream key
-#	for example STREAM_KEY="live_12345678901234567890"
-# 	and copy and paste a server from https://stream.twitch.tv/ingests/
-#	to <see_server_list_for_your_country>,
-#	e. g. LIVE_SERVER="rtmp://sfo.contribute.live-video.net/app/".
-#	The MS2109 HDMI2USB is limited to 720p with 60 fps and
-#	1080p with 30 fps.
 #
-# MacroSilicon MS2109 USB stick - uvcvideo kernel module
-# For stereo sound with pulsaudio try Stary's blog:
-# https://9net.org/.../hdmi-capture-without-breaking-the-bank/
-# 1920p30/60 capture doesn't work with this script with audio and overlay
-# and try to excute the script with nice
-#
+#	MacroSilicon MS2109 USB stick - uvcvideo kernel module
+#	The MS2109 HDMI2USB is limited to <=720p with 60 fps and
+#	1080p with 30 fps, because the USB2 standard limits the
+#	transfer rate to 30 megabytes/s!
+#	For stereo sound with pulsaudio try Stary's blog:
+#	https://9net.org/.../hdmi-capture-without-breaking-the-bank/
+
 # v4l2-ctl -d /dev/video0 --list-formats-ext
 
-# Create some files
+# File variables
 CONFIG_DIR=~/.config/livestream_with_jetson_conf
 STREAM_KEY_FILE=live_stream_with_jetson_stream.key
+INGEST_SERVER_LIST=ingest_server.lst
+INGEST_SERVER_URI=ingest_server.uri
 
 # Clean terminal
 reset
@@ -34,99 +30,164 @@ reset
 rm $CONFIG_DIR/gstreamer-debug-out.log
 # Check if configuration directory exists
 if [ ! -e $CONFIG_DIR ]; then
-mkdir $CONFIG_DIR
-echo "\nConfig directory created in:"
-echo "\t$CONFIG_DIR\n"
+	mkdir $CONFIG_DIR
+	echo "\nConfig directory created in:"
+	echo "\t$CONFIG_DIR\n"
 elif [ $CONFIG_DIR ]; then
-echo "\nConfig directory exists:"
-echo "\t$CONFIG_DIR"
+	echo "\nConfig directory exists:"
+	echo "\t$CONFIG_DIR"
 fi
 
 # Check if a stream key file exists
 if [ ! -e $CONFIG_DIR/$STREAM_KEY_FILE ]; then
-echo "\nStream key not found in"
-echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
-# Create empty stream key file
-touch $CONFIG_DIR/$STREAM_KEY_FILE
-chmod o-r $CONFIG_DIR/$STREAM_KEY_FILE
+	echo "\nStream key file not found in:"
+	echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
+	# Create empty stream key file
+	touch $CONFIG_DIR/$STREAM_KEY_FILE
+	chmod o-r $CONFIG_DIR/$STREAM_KEY_FILE
 elif [ $CONFIG_DIR/$STREAM_KEY_FILE ]; then
-echo "\nStream key found in:"
-echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
+	echo "\nStream key file found in:"
+	echo "\t$CONFIG_DIR/$STREAM_KEY_FILE\n"
 fi
 
 # Check if stream key is empty
 if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
-/usr/bin/chromium-browser "https://www.twitch.tv/login" &
-sleep 1
-echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
-echo "The key will be saved in this file: $STREAM_KEY_FILE"
-echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
-echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
-read CREATE_STREAM_KEY
-echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
+	/usr/bin/chromium-browser "https://www.twitch.tv/login" &
+	sleep 1
+	echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
+	echo "The key will be saved in this file: $STREAM_KEY_FILE"
+	echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
+	echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
+	read CREATE_STREAM_KEY
+	echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
 else
-echo "FILE WITH STREAM KEY $STREAM_KEY_FILE"
-echo "\tWAS FOUND IN $CONFIG_DIR"
+	echo "FILE WITH STREAM KEY $STREAM_KEY_FILE"
+	echo "\tWAS FOUND IN $CONFIG_DIR"
 fi
 
 while [ true ]; do
-echo "\nDo you want to (re)enter a new stream key?"
-echo "Enter 'YES' (in upper case) or 'no'."
-read CHANGE_KEY
-case $CHANGE_KEY in
-	YES) /usr/bin/chromium-browser "https://www.twitch.tv/login" &
-	     sleep 1
-	     echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
-	     echo "The key will be saved in this file: $STREAM_KEY_FILE"
-	     echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
-	     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
-	     rm $CONFIG_DIR/$STREAM_KEY_FILE
-	     touch $CONFIG_DIR/$STREAM_KEY_FILE
-	     read NEW_STREAM_KEY
-	     echo $NEW_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
-	     break
-	;;
-	no) break
-	;;
-esac
+	echo "\nDo you want to (re)enter a new stream key?"
+	echo "Enter 'YES' (in upper-case) or 'no'."
+	read CHANGE_KEY
+	case $CHANGE_KEY in
+		YES) /usr/bin/chromium-browser "https://www.twitch.tv/login" &
+		     sleep 1
+		     echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
+		     echo "The key will be saved in this file: $STREAM_KEY_FILE"
+		     echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
+		     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE:\n"
+		     rm $CONFIG_DIR/$STREAM_KEY_FILE
+		     touch $CONFIG_DIR/$STREAM_KEY_FILE
+		     read NEW_STREAM_KEY
+		     echo $NEW_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
+		     break
+		;;
+		no) break
+		;;
+	esac
 done
 
-# Stream key for Twitch (or FB, YT (not tested))
+# Stream key for Twitch (or FB, YT, but not tested)
 STREAM_KEY=$(cat $CONFIG_DIR/$STREAM_KEY_FILE)
 #echo "(For debugging only!) Your stream key is: $STREAM_KEY\n"
 
 # Twitch server for your country, see https://stream.twitch.tv/ingests/
-# e. g. Berlin, Europe, rtmp://ber.contribute.live-video.net/app/
-# e. g. Houston, USA, rtmp://hou.contribute.live-video.net/app/
-# LIVE_SERVER="rtmp://hou.contribute.live-video.net/app/"
-# LIVE_SERVER="rtmp://ber.contribute.live-video.net/app/"
-# LIVE_SERVER="rtmp://cdg.contribute.live-video.net/app/"
-LIVE_SERVER="<see_server_list_for_your_country>"
+# Search for 'ingest_server.lst', comes with the git repository
+
+# Check if ingest server uri file exists
+if [ ! -e $CONFIG_DIR/$INGEST_SERVER_URI ]; then
+	echo "\nServer URI file not found in:"
+	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
+	# Create empty server URI file
+	touch $CONFIG_DIR/$INGEST_SERVER_URI
+	chmod o-r $CONFIG_DIR/$INGEST_SERVER_URI
+elif [ $CONFIG_DIR/$INGEST_SERVER_URI ]; then
+	echo "\nServer URI file found in:"
+	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
+fi
+
+# Copy ingest server list to config directory
+while [ ! `find $CONFIG_DIR -name $INGEST_SERVER_LIST 2> /dev/null` ]; do
+	cp `find ~ -name $INGEST_SERVER_LIST 2> /dev/null` $CONFIG_DIR 2> /dev/null
+	if [ `find $CONFIG_DIR -name $INGEST_SERVER_LIST` ]; then
+		echo "\n$INGEST_SERVER_LIST found in $CONFIG_DIR/"
+		break
+	else
+		echo "\nCAN'T FIND FILE '$INGEST_SERVER_LIST' AND COPY TO:"
+		echo "\t$CONFIG_DIR/\n"
+		echo "\tPLEASE, COPY THE FILE '$INGEST_SERVER_LIST' INTO YOUR HOME" 
+		echo "\tDIRECTORY AND RERUN livestream_with_jetson.sh !\n"
+		exit
+	fi
+done
+
+if [ -s $CONFIG_DIR/$INGEST_SERVER_URI ]; then
+	while [ true ]; do
+		echo "Do you want to change the stream ingest server from your last session"
+		echo "to another server? Please, enter 'YES' (in upper-case) or 'no':\n"
+		read CHANGE_INGEST_SERVER_URI
+		case $CHANGE_INGEST_SERVER_URI in
+			YES) rm $CONFIG_DIR/$INGEST_SERVER_URI
+			touch $CONFIG_DIR/$INGEST_SERVER_URI
+			break
+			;;
+			no) break
+			;;
+		esac
+	done
+fi
+
+if [ `find $CONFIG_DIR -empty -name $INGEST_SERVER_URI` ]; then
+	# Print ingest server list
+	INGEST_LIST_LENGTH=`awk 'END{print NR}' $CONFIG_DIR/$INGEST_SERVER_LIST`
+	# echo "(For debugging only) Number of lines in $INGEST_SERVER_LIST: $INGEST_LIST_LENGTH"
+	for i in `seq 1 $INGEST_LIST_LENGTH` ; do
+		echo | ( awk -v n=$i 'NR==n { print n").."$2, $3, $4, $5, $6, $7, $8, $1 }' $CONFIG_DIR/$INGEST_SERVER_LIST )
+	done
+
+	while [ true ]; do
+		echo "Choose a number from the server list for your region,"
+		echo "e. g. type '51' and enter:"
+		read SERVER_NUMBER
+		# Strings for the server uri
+		NET_PROTOCOL_STR="rtmp://"
+		NET_SERVER_STR="/app/"
+		# Set server from list
+		if [ $SERVER_NUMBER -ge 1 ] && [ $SERVER_NUMBER -lt $INGEST_LIST_LENGTH ]; then
+			CREATE_INGEST_SERVER_URI=${NET_PROTOCOL_STR}$(awk -v m=$SERVER_NUMBER 'NR==m { print $1 }' "${CONFIG_DIR}/${INGEST_SERVER_LIST}")${NET_SERVER_STR}
+			echo $CREATE_INGEST_SERVER_URI > $CONFIG_DIR/$INGEST_SERVER_URI
+			break
+		fi
+	done
+fi
+
+LIVE_SERVER=$(cat $CONFIG_DIR/$INGEST_SERVER_URI)
+echo "Server set to: $LIVE_SERVER\n"
 
 echo "\nInput and output set to:\n"
 
 # Video capture sources
 echo "List of capture devices:"
 for V4L2SRC_DEVICE in /dev/video* ; do
-echo "\t$V4L2SRC_DEVICE\n"
-v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
-echo
+	echo "\t$V4L2SRC_DEVICE\n"
+	v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
+	echo
 done
 
 while [ true ] ; do
-echo "Use this $V4L2SRC_DEVICE Video for Linux device and"
-echo "write 'yes' and enter or write the path to another"
-echo "device, e. g. '/dev/video1' and enter.\n"
-read OTHER_V4L2SRC_DEVICE
-if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
-echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
-break
-fi
-if [ "${OTHER_V4L2SRC_DEVICE}" = "/dev/video1" ]; then
-eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
-echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
-break
-fi
+	echo "Use this $V4L2SRC_DEVICE Video for Linux device and"
+	echo "write 'yes' and enter or write the path to another"
+	echo "device, e. g. '/dev/video1' and enter.\n"
+	read OTHER_V4L2SRC_DEVICE
+	if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
+		echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
+		break
+	fi
+	if [ "${OTHER_V4L2SRC_DEVICE}" = "/dev/video1" ]; then
+		eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
+		echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
+		break
+	fi
 done
 
 # Audio capture sources
@@ -363,20 +424,20 @@ echo "\t$CONFIG_DIR/gstreamer-debug-out.log"
 
 # Pipline and stream started
 if [ `pidof gst-launch-1.0` = $PID_GSTREAMER_PIPELINE ]; then
-echo "\n\tYOU'RE STREAM IS NOW ONLINE & LIVE!\n"
+	echo "\n\tYOU'RE STREAM IS NOW ONLINE & LIVE!\n"
 fi
 
 # Read key press for stopping gestreamer pipeline
 while [ true ] ; do
-echo "\tWrite the word 'quit' and enter to stop the stream!\n"
-read QUIT_STREAM
-if [ "${QUIT_STREAM}" = "quit" ]; then
-echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN!\n"
-read REALLY_QUIT_STREAM
-if [ "${REALLY_QUIT_STREAM}" = "quit" ]; then
-break
-fi
-fi
+	echo "\tWrite the word 'quit' and enter to stop the stream!\n"
+	read QUIT_STREAM
+	if [ "${QUIT_STREAM}" = "quit" ]; then
+		echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN!\n"
+		read REALLY_QUIT_STREAM
+			if [ "${REALLY_QUIT_STREAM}" = "quit" ]; then
+				break
+			fi
+	fi
 done
 kill -s 15 $PID_GSTREAMER_PIPELINE
 echo "\tSTREAM STOPPED!\n"
