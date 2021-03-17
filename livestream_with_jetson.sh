@@ -1,10 +1,10 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson_v0.04.sh 
-# Date: 2021-03-16
-# Version 0.04g by Marc Bayer
+# Date: 2021-03-17
+# Version 0.04h by Marc Bayer
 #
-# Script for game captue live streaming to Twitch, YT, FB
+# Script for game capture live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
 #
 # Usage: jetson_nano2livestream_twitch.sh
@@ -113,6 +113,7 @@ STREAM_KEY=$(cat $CONFIG_DIR/$STREAM_KEY_FILE)
 
 # Twitch server for your country, see https://stream.twitch.tv/ingests/
 # Search for 'ingest_server.lst', comes with the git repository
+# or copy and paste the servers from https://twitchstatus.com/
 
 # Copy ingest server list to config directory
 while [ ! `find $CONFIG_DIR -name $INGEST_SERVER_LIST 2> /dev/null` ]; do
@@ -198,7 +199,7 @@ for V4L2SRC_DEVICE in /dev/video* ; do
 done
 
 # Create default video config and print results
-LAST_CONFIG=1920x1080
+LAST_CONFIG=1
 # and parse current config file
 if ( grep -q last.config $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	TMP_LAST_CONFIG=$(awk '$1 == "last.config" { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
@@ -219,8 +220,29 @@ if ( grep -q "screenres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	TMP_SCREEN_RESOLUTION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "screenres." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 	eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION}"
 else
-	echo "screenres.${LAST_CONFIG} ${LAST_CONFIG}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-	SCREEN_RESOLUTION=$LAST_CONFIG
+	echo "screenres.${LAST_CONFIG} 1920x1080" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	SCREEN_RESOLUTION=1920x1080
+fi
+
+if ( grep -q "inputframerate.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	INPUT_FRAMERATE=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "inputframerate." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "inputframerate.${LAST_CONFIG} 30" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	INPUT_FRAMERATE=30
+fi
+
+if ( grep -q "screenaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	SCREEN_ASPECT_RATIO=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "screenaspect." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "screenaspect.${LAST_CONFIG} 16:9" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	SCREEN_ASPECT_RATIO=16:9
+fi
+
+if ( grep -q "pixelaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	PIXEL_ASPECT_RATIO=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "pixelaspect." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "pixelaspect.${LAST_CONFIG} 1:1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	PIXEL_ASPECT_RATIO=1:1
 fi
 
 if ( grep -q "brightness.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
@@ -251,20 +273,41 @@ else
 	SATURATION=0
 fi
 
+if ( grep -q "displayres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	DISPLAY_RESOLUTION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "displayres." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "displayres.${LAST_CONFIG} 1920x1080" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	DISPLAY_RESOLUTION=1920x1080
+fi
+
+if ( grep -q "displayaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	DISPLAY_ASPECT_RATIO=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "displayaspect." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "displayaspect.${LAST_CONFIG} 16:9" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	DISPLAY_ASPECT_RATIO=16:9
+fi
+
+# Input/output settings
 echo "Current settings:"
 echo "\tVideo input:"
 echo "\t\tVideo input device=$V4L2SRC_DEVICE"
 echo "\t\tVideo input resolution=$SCREEN_RESOLUTION"
+echo "\t\tVideo capture framerate=$INPUT_FRAMERATE"
+echo "\t\tVideo screen aspect ratio=$SCREEN_ASPECT_RATIO"
+echo "\t\tVideo pixel aspect ratio=$PIXEL_ASPECT_RATIO" 
 echo "\tPicture settings:"
 echo "\t\tBrightness=$BRIGHTNESS"
 echo "\t\tContrast=$CONTRAST"
 echo "\t\tHue=$HUE"
-echo "\t\tSaturation=$SATURATION\n"
+echo "\t\tSaturation=$SATURATION"
+echo "\tVideo output:"
+echo "\t\tVideo output resolution=$DISPLAY_RESOLUTION"
+echo "\t\tVideo display aspect ratio=$DISPLAY_ASPECT_RATIO"
 
 while [ true ] ; do
 	echo "Do you want to use this video device for main video in or another device?"
 	echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
-	echo "\tCurrent MAIN VIDEO IN set to: $V4L2SRC_DEVICE\n"
+	echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE\n"
 	echo "ENTER: 'yes' or the path to another device."
 	read OTHER_V4L2SRC_DEVICE
 	if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
@@ -272,14 +315,12 @@ while [ true ] ; do
 		break
 	else
 		eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
-		sed -i '/videodev/d' $CONFIG_DIR/$VIDEO_CONFIG_FILE
-		echo "videodev $V4L2SRC_DEVICE" > $CONFIG_DIR/$VIDEO_CONFIG_FILE
+		sed -i "/videodev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+		echo "videodev.${LAST_CONFIG} $V4L2SRC_DEVICE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 		echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
 		break
 	fi
 done
-
-exit
 
 echo "Supported formats for video device $V4L2SRC_DEVICE:"
 v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
@@ -288,21 +329,22 @@ v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
 echo "List of audio devices:"
 arecord -L | grep ^hw:
 
-# Input settings
-PIXEL_ASPECT_RATIO="1:1"
-SCREEN_WIDTH=1920
-SCREEN_HEIGHT=1080
-INPUT_FRAMERATE=30
-SCREEN_ASPECT_RATIO="16:9"
+# Set input settings
+SCREEN_WIDTH=$((${SCREEN_RESOLUTION%x*}))
+SCREEN_HEIGHT=$((${SCREEN_RESOLUTION#*x}))
 
 SCREEN_AR_X=$((${SCREEN_ASPECT_RATIO%:*}))
 SCREEN_AR_Y=$((${SCREEN_ASPECT_RATIO#*:}))
 
-echo "Video input settings:"
-echo "\tScreen width=$SCREEN_WIDTH"
-echo "\tScreen height=$SCREEN_HEIGHT"
-echo "\tInput framerate=$INPUT_FRAMERATE"
-echo "\tScreen aspect ratio: $SCREEN_AR_X:$SCREEN_AR_Y\n"
+PIXEL_AR_X=$((${PIXEL_ASPECT_RATIO%:*}))
+PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
+
+# Set output settings
+DISPLAY_WIDTH=$((${DISPLAY_RESOLUTION%x*}))
+DISPLAY_HEIGHT=$((${DISPLAY_RESOLUTION#*x}))
+
+DISPLAY_AR_X=$((${DISPLAY_ASPECT_RATIO%:*}))
+DISPLAY_AR_Y=$((${DISPLAY_ASPECT_RATIO#*:}))
 
 # Crop image in absolute screen coordinates
 CROPPED_SCREEN_WIDTH=$( echo "scale=0; $SCREEN_WIDTH * 0.965" | bc -l )
@@ -317,23 +359,6 @@ CROP_X1=$( echo "scale=0; $CROPPED_SCREEN_WIDTH + $CROP_X0" | bc -l )
 CROP_X1=$((${CROP_X1%.*}))
 CROP_Y1=$( echo "scale=0; $CROPPED_SCREEN_HEIGHT + $CROP_Y0" | bc -l )
 CROP_Y1=$((${CROP_Y1%.*}))
-# Show cropping values
-echo "Screen cropped to:"
-echo "\tUpper left corner coordinates"
-echo "\tX0=$CROP_X0, Y0=$CROP_Y0\n"
-echo "\t\tLower right corner coordinates"
-echo "\t\tX1=$CROP_X1, Y1=$CROP_Y1\n"
-echo "\tScreen safe area in width cropped to: $CROPPED_SCREEN_WIDTH"
-echo "\tScreen safe area in height cropped to: $CROPPED_SCREEN_HEIGHT\n"
-
-# Output settings
-DISPLAY_WIDTH_MAIN=1920
-DISPLAY_HEIGHT_MAIN=1080
-
-DISPLAY_ASPECT_RATIO="16:9"
-
-DISPLAY_AR_X=$((${DISPLAY_ASPECT_RATIO%:*}))
-DISPLAY_AR_Y=$((${DISPLAY_ASPECT_RATIO#*:}))
 
 # Scaler type for output scaling
 # 0 = nearest
@@ -402,15 +427,6 @@ PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
 
 PIXEL_ASPECT_RATIO="$PIXEL_AR_X/$PIXEL_AR_Y"
 
-echo "Video output settings:"
-echo "\tDisplay aspect ratio: $DISPLAY_AR_X:$DISPLAY_AR_Y"
-echo "\tVideo H.264 target bitrate bits per second: $VIDEO_TARGET_BITRATE"
-echo "\tVideo H.264 peak bitrate per second: $VIDEO_PEAK_BITRATE"
-echo "\tAudio AAC bitrate bits per second: $AUDIO_BIT_RATE"
-echo "\tFrames per second gstreamer: $FRAMES_PER_SEC"
-echo "\tKeyframe interval per frames: $I_FRAME_INTERVAL"
-echo "\tPixel aspect ratio for gstreamer: $PIXEL_AR_X:$PIXEL_AR_Y\n"
-
 # Overlay size
 OVL_POSITION_X=100
 OVL_POSITION_Y=100
@@ -422,6 +438,32 @@ OVL1_POSITION_X=840
 OVL1_POSITION_Y=100
 OVL1_SIZE_X=640
 OVL1_SIZE_Y=320
+
+# Show input settings
+echo "\nVideo input settings:"
+echo "\tScreen width=$SCREEN_WIDTH"
+echo "\tScreen height=$SCREEN_HEIGHT"
+echo "\tCapture framerate=$INPUT_FRAMERATE"
+echo "\tScreen aspect ratio: $SCREEN_AR_X:$SCREEN_AR_Y"
+echo "\tPixel aspect ratio: $PIXEL_AR_X:$PIXEL_AR_Y"
+# Show cropping values
+echo "Screen cropped to:"
+echo "\tUpper left corner coordinates"
+echo "\tX0=$CROP_X0, Y0=$CROP_Y0\n"
+echo "\t\tLower right corner coordinates"
+echo "\t\tX1=$CROP_X1, Y1=$CROP_Y1\n"
+echo "\tScreen safe area in width cropped to: $CROPPED_SCREEN_WIDTH"
+echo "\tScreen safe area in height cropped to: $CROPPED_SCREEN_HEIGHT"
+# Show output settings
+echo "Video output settings:"
+echo "\tDisplay width=$DISPLAY_WIDTH"
+echo "\tDisplay heigth=$DISPLAY_HEIGHT"
+echo "\tOutput framerate=$INPUT_FRAMERATE"
+echo "\tKeyframe interval per frames: $I_FRAME_INTERVAL"
+echo "\tDisplay aspect ratio: $DISPLAY_AR_X:$DISPLAY_AR_Y\n"
+echo "\tVideo H.264 target bitrate bits per second: $VIDEO_TARGET_BITRATE"
+echo "\tVideo H.264 peak bitrate per second: $VIDEO_PEAK_BITRATE"
+echo "\tAudio AAC bitrate bits per second: $AUDIO_BIT_RATE\n"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
@@ -450,7 +492,7 @@ v4l2src \
 ! "video/x-raw(memory:NVMM)" \
 ! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
 ! nvvidconv interpolation-method=$SCALER_TYPE \
-! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH_MAIN},height=${DISPLAY_HEIGHT_MAIN},format=NV12" \
+! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT},format=NV12" \
 ! tee name=videosrc0 \
 ! queue \
 ! omxh264enc iframeinterval=$I_FRAME_INTERVAL \
