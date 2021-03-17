@@ -1,8 +1,9 @@
 #!/bin/sh
 #
-# File: livestream_with_jetson_v0.04.sh 
+# File: livestream_with_jetson.sh 
 # Date: 2021-03-17
-# Version 0.04h by Marc Bayer
+# Version: 0.04h
+# Developer: Marc Bayer
 #
 # Script for game capture live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
