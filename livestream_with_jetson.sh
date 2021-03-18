@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-17
-# Version: 0.04h
+# Date: 2021-03-18
+# Version: 0.04k
 # Developer: Marc Bayer
 #
 # Script for game capture live streaming to Twitch, YT, FB
@@ -30,6 +30,56 @@ STREAM_KEY_FILE=live_stream_with_jetson_stream.key
 INGEST_SERVER_LIST=ingest_server.lst
 INGEST_SERVER_URI=ingest_server.uri
 VIDEO_CONFIG_FILE=videoconfig.cfg
+
+# Scaler type for output scaling
+# 0 = nearest
+# 1 = bilinear
+# 2 = 5-tap
+# 3 = 10-tap
+# 4 = smart (default)
+# 5 = nicest
+SCALER_TYPE=4
+
+CONTROL_RATE=1
+# VBR or CBR
+# 1 = VBR
+# 2 = CBR
+# 3 = VBR skip frames
+# 4 = CBR skip frames
+CONTROL_RATE=2
+
+# Encoder speed & quality from bad to best
+# 0 = ultra fast preset
+# 1 = fast preset (default)
+# 2 = medium preset
+# 3 = slow preset
+VIDEO_QUALITY=3
+
+# Audioencoder kbits per second
+AUDIO_BIT_RATE=160
+
+# Sampling rate in kHz
+AUDIO_SAMPLING_RATE=48000
+
+# Number of audio channels
+AUDIO_NUM_CH=2
+
+# Multiplexer
+#MUXER=mp4mux
+#MUXER=qtmux
+MUXER=flvmux
+
+# Overlay size
+OVL_POSITION_X=100
+OVL_POSITION_Y=100
+OVL_SIZE_X=640
+OVL_SIZE_Y=320
+
+# 2nd Overlay size
+OVL1_POSITION_X=840
+OVL1_POSITION_Y=100
+OVL1_SIZE_X=640
+OVL1_SIZE_Y=320
 
 # Clean terminal
 reset
@@ -72,31 +122,41 @@ fi
 
 # Check if stream key is empty
 if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
-	/usr/bin/chromium-browser "https://www.twitch.tv/login" &
+	#/usr/bin/chromium-browser "https://www.twitch.tv/login" &
 	sleep 1
-	echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
-	echo "The key will be saved in this file: $STREAM_KEY_FILE"
-	echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
+	echo "================================================================================"
+	echo "Please, enter your Twitch.tv stream key from your Twitch account!\n"
+	echo "The key will be saved in this file:"
+	echo "\t$STREAM_KEY_FILE\n"
+	echo "Your will find this file in this directory:"
+	echo "\t$CONFIG_DIR\n"
+	echo "================================================================================"
 	echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:"
 	read CREATE_STREAM_KEY
 	echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
 else
 	echo "FILE WITH STREAM KEY $STREAM_KEY_FILE"
-	echo "\tWAS FOUND IN $CONFIG_DIR"
+	echo "\tWAS FOUND IN $CONFIG_DIR\n"
 fi
 
 while [ true ]; do
-	echo "\nDo you want to (re)enter a new stream key?"
-	echo "ENTER: 'YES' (in upper-case) or 'no'."
+	echo "================================================================================"
+	echo "Do you want to (re)enter a new stream key?"
+	echo "================================================================================"
+	echo "ENTER: 'YES' (in upper-case) or 'no':"
 	read CHANGE_KEY
 	echo
 	case $CHANGE_KEY in
-		YES) /usr/bin/chromium-browser "https://www.twitch.tv/login" &
+		YES) #/usr/bin/chromium-browser "https://www.twitch.tv/login" &
 		     sleep 1
+		     echo "================================================================================"
 		     echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
-		     echo "The key will be saved in this file: $STREAM_KEY_FILE"
-		     echo "Your will find the stream key file in this directory: $CONFIG_DIR\n"
-		     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:\n"
+		     echo "The key will be saved in this file:"
+		     echo "\t$STREAM_KEY_FILE\n"
+		     echo "Your will find the stream key file in this directory:"
+		     echo "\t$CONFIG_DIR\n"
+		     echo "================================================================================"
+		     echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:"
 		     rm $CONFIG_DIR/$STREAM_KEY_FILE
 		     touch $CONFIG_DIR/$STREAM_KEY_FILE
 		     read NEW_STREAM_KEY
@@ -133,8 +193,10 @@ done
 
 if [ -s $CONFIG_DIR/$INGEST_SERVER_URI ]; then
 	while [ true ]; do
+		echo "================================================================================"
 		echo "Do you want to change the stream ingest server from your last session"
 		echo "to another server?"
+		echo "================================================================================"
 		echo "ENTER: 'YES' (in upper-case) or 'no' and press RETURN:"
 		read CHANGE_INGEST_SERVER_URI
 		echo
@@ -153,13 +215,16 @@ if [ `find $CONFIG_DIR -empty -name $INGEST_SERVER_URI` ]; then
 	# Print ingest server list
 	INGEST_LIST_LENGTH=`awk 'END{print NR}' $CONFIG_DIR/$INGEST_SERVER_LIST`
 	# echo "(For debugging only) Number of lines in $INGEST_SERVER_LIST: $INGEST_LIST_LENGTH"
+	echo "================================================================================"
 	for i in `seq 1 $INGEST_LIST_LENGTH` ; do
 		echo | ( awk -v n=$i 'NR==n { print n").."$2, $3, $4, $5, $6, $7, $8, $1 }' $CONFIG_DIR/$INGEST_SERVER_LIST )
 	done
 
 	while [ true ]; do
-		echo "Choose a number from the server list for your region,"
-		echo "ENTER: Write the number before the server, e. g. 51, and press RETURN."
+		echo "================================================================================"
+		echo "Choose a number from the server list for your region!"
+		echo "================================================================================"
+		echo "ENTER: Write the number before the server, e. g. 51, and press RETURN:"
 		read SERVER_NUMBER
 		# Strings for the server uri
 		NET_PROTOCOL_STR="rtmp://"
@@ -191,13 +256,27 @@ elif [ $CONFIG_DIR/$VIDEO_CONFIG_FILE ]; then
 fi
 
 # Video capture sources
-
-echo "List of capture devices:"
+echo "================================================================================\n"
 for V4L2SRC_DEVICE in /dev/video* ; do
-	echo "\t$V4L2SRC_DEVICE\n"
 	v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
 	echo
 done
+echo "================================================================================\n"
+echo "Supported formats for video device $V4L2SRC_DEVICE:\n"
+v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
+
+# Audio capture sources
+echo "================================================================================\n"
+echo "List of audio devices:"
+echo "\nALSA output devices:"
+aplay -L
+echo "\nALSA input devices:"
+arecord -L
+echo "Pulseaudio output devices:"
+pacmd list-sinks | grep -e 'index:' -e device.string -e 'name:'
+echo "Pulseaudio input devices:"
+pacmd list-sources | grep -e 'index:' -e device.string -e 'name:'
+echo "\n================================================================================"
 
 # Create default video config and print results
 LAST_CONFIG=1
@@ -211,14 +290,14 @@ else
 fi
 
 if ( grep -q "videodev.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	TMP_V4L2SRC_DEVICE=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "videodev." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	TMP_V4L2SRC_DEVICE=$(awk -v last=videodev.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 	eval "V4L2SRC_DEVICE=\${TMP_V4L2SRC_DEVICE}"
 else
 	echo "videodev.${LAST_CONFIG} ${V4L2SRC_DEVICE}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 fi
 
 if ( grep -q "screenres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	TMP_SCREEN_RESOLUTION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "screenres." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	TMP_SCREEN_RESOLUTION=$(awk -v last=screenres.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 	eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION}"
 else
 	echo "screenres.${LAST_CONFIG} 1920x1080" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
@@ -226,90 +305,324 @@ else
 fi
 
 if ( grep -q "inputframerate.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	INPUT_FRAMERATE=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "inputframerate." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	INPUT_FRAMERATE=$(awk -v last=inputframerate.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "inputframerate.${LAST_CONFIG} 30" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	INPUT_FRAMERATE=30
 fi
 
 if ( grep -q "screenaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	SCREEN_ASPECT_RATIO=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "screenaspect." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	SCREEN_ASPECT_RATIO=$(awk -v last=screenaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "screenaspect.${LAST_CONFIG} 16:9" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	SCREEN_ASPECT_RATIO=16:9
 fi
 
 if ( grep -q "pixelaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	PIXEL_ASPECT_RATIO=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "pixelaspect." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "pixelaspect.${LAST_CONFIG} 1:1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	PIXEL_ASPECT_RATIO=1:1
 fi
 
 if ( grep -q "brightness.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	BRIGHTNESS=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "brightness." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	BRIGHTNESS=$(awk -v last=brightness.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "brightness.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	BRIGHTNESS=0
 fi
 
 if ( grep -q "contrast.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	CONTRAST=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "contrast." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	CONTRAST=$(awk -v last=contrast.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "contrast.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	CONTRAST=0
 fi
 
 if ( grep -q "hue.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	HUE=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "hue." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	HUE=$(awk -v last=hue.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "hue.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	HUE=0
 fi
 
 if ( grep -q "saturation.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	SATURATION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "saturation." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	SATURATION=$(awk -v last=saturation.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "saturation.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	SATURATION=0
 fi
 
+if ( grep -q "crop.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	FLAG_CROP=$(awk -v last=crop.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "crop.${LAST_CONFIG} no" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	FLAG_CROP=no
+fi
+
 if ( grep -q "displayres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	DISPLAY_RESOLUTION=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "displayres." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	DISPLAY_RESOLUTION=$(awk -v last=displayres.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "displayres.${LAST_CONFIG} 1920x1080" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	DISPLAY_RESOLUTION=1920x1080
 fi
 
 if ( grep -q "displayaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-	DISPLAY_ASPECT_RATIO=$(awk -v last=$LAST_CONFIG 'BEGIN {pattern = "displayaspect." ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	DISPLAY_ASPECT_RATIO=$(awk -v last=displayaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
 	echo "displayaspect.${LAST_CONFIG} 16:9" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	DISPLAY_ASPECT_RATIO=16:9
 fi
 
-# Input/output settings
-echo "Current settings:"
-echo "\tVideo input:"
-echo "\t\tVideo input device=$V4L2SRC_DEVICE"
-echo "\t\tVideo input resolution=$SCREEN_RESOLUTION"
-echo "\t\tVideo capture framerate=$INPUT_FRAMERATE"
-echo "\t\tVideo screen aspect ratio=$SCREEN_ASPECT_RATIO"
-echo "\t\tVideo pixel aspect ratio=$PIXEL_ASPECT_RATIO" 
-echo "\tPicture settings:"
-echo "\t\tBrightness=$BRIGHTNESS"
-echo "\t\tContrast=$CONTRAST"
-echo "\t\tHue=$HUE"
-echo "\t\tSaturation=$SATURATION"
-echo "\tVideo output:"
-echo "\t\tVideo output resolution=$DISPLAY_RESOLUTION"
-echo "\t\tVideo display aspect ratio=$DISPLAY_ASPECT_RATIO"
+if ( grep -q "bitrate.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	VIDEO_PEAK_BITRATE_MBPS=$(awk -v last=bitrate.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "bitrate.${LAST_CONFIG} 4.5" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	VIDEO_PEAK_BITRATE_MBPS=4.5
+fi
+
+# Ask to proceed or change the configuration
+while [ true ] ; do
+	# Set input settings
+	SCREEN_WIDTH=$((${SCREEN_RESOLUTION%x*}))
+	SCREEN_HEIGHT=$((${SCREEN_RESOLUTION#*x}))
+
+	SCREEN_AR_X=$((${SCREEN_ASPECT_RATIO%:*}))
+	SCREEN_AR_Y=$((${SCREEN_ASPECT_RATIO#*:}))
+
+	PIXEL_AR_X=$((${PIXEL_ASPECT_RATIO%:*}))
+	PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
+
+	# Set output settings
+	DISPLAY_WIDTH=$((${DISPLAY_RESOLUTION%x*}))
+	DISPLAY_HEIGHT=$((${DISPLAY_RESOLUTION#*x}))
+
+	DISPLAY_AR_X=$((${DISPLAY_ASPECT_RATIO%:*}))
+	DISPLAY_AR_Y=$((${DISPLAY_ASPECT_RATIO#*:}))
+
+	AUDIO_TARGET_BITRATE=$(($AUDIO_BIT_RATE*1000))
+
+	VIDEO_PEAK_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE_MBPS * 1000000 - $AUDIO_BIT_RATE * 1000" | bc -l )
+	VIDEO_PEAK_BITRATE=$((${VIDEO_PEAK_BITRATE%.*}))
+
+	VIDEO_TARGET_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE * 0.8" | bc -l )
+	VIDEO_TARGET_BITRATE=$((${VIDEO_TARGET_BITRATE%.*}))
+
+	FRAMES_PER_SEC="$(($INPUT_FRAMERATE))/1"
+	I_FRAME_INTERVAL=$(($INPUT_FRAMERATE*2))
+
+	PIXEL_AR_X=$((${PIXEL_ASPECT_RATIO%:*}))
+	PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
+
+	PIXEL_ASPECT_RATIO="$PIXEL_AR_X/$PIXEL_AR_Y"
+
+	FLAG_CROP=$(awk -v last=crop.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	# Crop image in absolute screen coordinates
+	if [ "$FLAG_CROP" = "yes" ] ; then
+		CROPPED_SCREEN_WIDTH=$( echo "scale=0; $SCREEN_WIDTH * 0.965" | bc -l )
+		CROPPED_SCREEN_WIDTH=$((${CROPPED_SCREEN_WIDTH%.*}))
+		CROPPED_SCREEN_HEIGHT=$( echo "scale=0; $SCREEN_HEIGHT * 0.965" | bc -l )
+		CROPPED_SCREEN_HEIGHT=$((${CROPPED_SCREEN_HEIGHT%.*}))
+		CROP_X0=$( echo "scale=0; ( $SCREEN_WIDTH - $CROPPED_SCREEN_WIDTH ) * 0.5" | bc -l )
+		CROP_X0=$((${CROP_X0%.*}))
+		CROP_Y0=$( echo "scale=0; ( $SCREEN_HEIGHT - $CROPPED_SCREEN_HEIGHT ) * 0.5" | bc -l )
+		CROP_Y0=$((${CROP_Y0%.*}))
+		CROP_X1=$( echo "scale=0; $CROPPED_SCREEN_WIDTH + $CROP_X0" | bc -l )
+		CROP_X1=$((${CROP_X1%.*}))
+		CROP_Y1=$( echo "scale=0; $CROPPED_SCREEN_HEIGHT + $CROP_Y0" | bc -l )
+		CROP_Y1=$((${CROP_Y1%.*}))
+	else
+		CROPPED_SCREEN_WIDTH=$SCREEN_WIDTH
+		CROPPED_SCREEN_HEIGHT=$SCREEN_HEIGHT
+		CROP_X0=0
+		CROP_Y0=0
+		CROP_X1=$SCREEN_WIDTH
+		CROP_Y1=$SCREEN_HEIGHT
+	fi
+	# Input/output settings
+	echo "\nCurrent settings:"
+	# Show input screen settings
+	echo "\tVideo input:"
+	echo "\t\tVideo input device=$V4L2SRC_DEVICE"
+	echo "\t\tVideo input resolution=$SCREEN_RESOLUTION"
+	echo "\t\t\tScreen width=$SCREEN_WIDTH"
+	echo "\t\t\tScreen height=$SCREEN_HEIGHT\n"
+	echo "\t\tVideo capture framerate=$INPUT_FRAMERATE"
+	echo "\t\tVideo screen aspect ratio=$SCREEN_ASPECT_RATIO"
+	echo "\t\tVideo pixel aspect ratio=$PIXEL_ASPECT_RATIO\n" 
+	echo "\tPicture settings:"
+	echo "\t\tBrightness=$BRIGHTNESS"
+	echo "\t\tContrast=$CONTRAST"
+	echo "\t\tHue=$HUE"
+	echo "\t\tSaturation=$SATURATION\n"
+	# Show cropping values
+	echo "\tScreen cropped to:"
+	echo "\t\tCropped 3.5% of the safe area down of screen the screen size."
+	echo "\t\tThe image will be rescaled to display size."
+	echo "\t\t\tUpper left corner coordinates"
+	echo "\t\t\tX0=$CROP_X0, Y0=$CROP_Y0"
+	echo "\t\t\t\tLower right corner coordinates"
+	echo "\t\t\t\tX1=$CROP_X1, Y1=$CROP_Y1\n"
+	echo "\t\tScreen cropped width=$CROPPED_SCREEN_WIDTH"
+	echo "\t\tScreen cropped height=$CROPPED_SCREEN_HEIGHT\n"
+	# Show output display settings
+	echo "\tVideo output:"
+	echo "\t\tVideo output resolution=$DISPLAY_RESOLUTION"
+	echo "\t\t\tDisplay width=$DISPLAY_WIDTH"
+	echo "\t\t\tDisplay heigth=$DISPLAY_HEIGHT\n"
+	echo "\t\tVideo output framerate=$INPUT_FRAMERATE"
+	echo "\t\tVideo display aspect ratio=$DISPLAY_ASPECT_RATIO"
+	echo "\t\tKeyframe interval per frames=$I_FRAME_INTERVAL"
+	echo "\t\tVideo H.264 peak bitrate per second=$VIDEO_PEAK_BITRATE"
+	echo "\t\tVideo H.264 target bitrate bits per second=$VIDEO_TARGET_BITRATE"
+	echo "\t\tAudio AAC bitrate bits per second=$AUDIO_TARGET_BITRATE\n"
+	# Ask
+	echo "================================================================================"
+	echo "PLEASE, SCROLL UP AND CHECK THE STREAM SETTINGS BEFORE YOU PROCEED!\n"
+	echo "Do your want to proceed and 'START' streaming or"
+	echo "do you want to 'change' the video settings or"
+	echo "do you want to 'exit'?"
+	echo "================================================================================"
+	echo "ENTER: The keywords 'START' for streaming, 'change' to change the video"
+	echo "configuration or 'exit' to abort the script:"
+	read ASK_FOR_TASK
+	case $ASK_FOR_TASK in
+		exit) exit
+		;;
+		START) break
+		;;
+		change) # List current configuration and ask to create new or edit current
+
+		# Count number of individual video configs
+		CONFIG_FIGURE=0
+		VIDEO_CONFIG_LENGTH=`awk 'END{print NR}' $CONFIG_DIR/$VIDEO_CONFIG_FILE`
+		for j in `seq 1 $VIDEO_CONFIG_LENGTH` ; do
+			FIRST_STRING=$( awk -v n=$j 'NR==n { print $1 }' $CONFIG_DIR/$VIDEO_CONFIG_FILE )
+			if [ "$FIRST_STRING" = "last.config" ]; then
+				eval "FIRST_STRING=\${CONFIG_FIGURE}"
+			fi
+			TMP_CONFIG_FIGURE=${FIRST_STRING#*.}
+			if [ $TMP_CONFIG_FIGURE -ge $CONFIG_FIGURE ]; then
+				eval "CONFIG_FIGURE=\${TMP_CONFIG_FIGURE}"
+			fi
+		done
+		echo "\n================================================================================"
+		echo "\t$CONFIG_FIGURE video configurations found."
+		echo "================================================================================"
+		# List presets
+		for l in `seq 1 2` ; do
+		for k in `seq 1 $CONFIG_FIGURE` ; do
+			if ( grep -q "videodev.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_VIDEODEV=$(awk -v last=videodev.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "screenres.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_SCREEN_RESOLUTION=$(awk -v last=screenres.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "inputframerate.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_FRAMERATE=$(awk -v last=inputframerate.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "screenaspect.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_SCREEN_ASPECT_RATIO=$(awk -v last=screenaspect.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "pixelaspect.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "displayres.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_DISPLAY_RESOLUTION=$(awk -v last=displayres.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "displayaspect.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_DISPLAY_ASPECT_RATIO=$(awk -v last=displayaspect.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "bitrate.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_VIDEO_PEAK_BITRATE=$(awk -v last=bitrate.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "crop.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_FLAG_CROP=$(awk -v last=crop.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "brightness.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_BRIGHTNESS=$(awk -v last=brightness.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "contrast.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_CONTRAST=$(awk -v last=contrast.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "hue.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_HUE=$(awk -v last=hue.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "saturation.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_SATURATION=$(awk -v last=saturation.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			echo "$k) $PRINT_VIDEODEV $PRINT_SCREEN_RESOLUTION@$PRINT_FRAMERATE ($PRINT_SCREEN_ASPECT_RATIO) -> $PRINT_DISPLAY_RESOLUTION@$PRINT_FRAMERATE ($PRINT_DISPLAY_ASPECT_RATIO) > $PRINT_VIDEO_PEAK_BITRATE mbps"
+			echo "\tcrop input size=$PRINT_FLAG_CROP, brightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION\n"
+		done
+		if [ $l = 2 ]; then
+			break
+		fi
+		read CHOOSE_FIGURE
+		if [ $CHOOSE_FIGURE -ge 1 ] && [ $CHOOSE_FIGURE -le $CONFIG_FIGURE ]; then
+			eval "LAST_CONFIG=\${CHOOSE_FIGURE}"
+			sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "last.config $CHOOSE_FIGURE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			if ( grep -q "videodev.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				V4L2SRC_DEVICE=$(awk -v last=videodev.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "screenres.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				SCREEN_RESOLUTION=$(awk -v last=screenres.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "inputframerate.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				INPUT_FRAMERATE=$(awk -v last=inputframerate.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "screenaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				SCREEN_ASPECT_RATIO=$(awk -v last=screenaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "pixelaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "displayres.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				DISPLAY_RESOLUTION=$(awk -v last=displayres.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "displayaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				DISPLAY_ASPECT_RATIO=$(awk -v last=displayaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "bitrate.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				VIDEO_PEAK_BITRATE_MBPS=$(awk -v last=bitrate.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "crop.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				FLAG_CROP=$(awk -v last=crop.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "brightness.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				BRIGHTNESS=$(awk -v last=brightness.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "contrast.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				CONTRAST=$(awk -v last=contrast.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "hue.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				HUE=$(awk -v last=hue.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "saturation.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				SATURATION=$(awk -v last=saturation.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+		fi
+		done
+		echo "================================================================================"
+		echo "Switched to configuration no. $CHOOSE_FIGURE"
+		echo "================================================================================"
+		;;
+	esac
+done
 
 while [ true ] ; do
+	echo "================================================================================"
+	echo "List of capture devices:"
+	for V4L2SRC_DEVICE in /dev/video* ; do
+		echo "\t$V4L2SRC_DEVICE\n"
+		v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
+		echo
+	done
 	echo "Do you want to use this video device for main video in or another device?"
 	echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
-	echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE\n"
-	echo "ENTER: 'yes' or the path to another device."
+	echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE"
+	echo "================================================================================"
+	echo "ENTER: 'yes' or the path to another device:"
 	read OTHER_V4L2SRC_DEVICE
 	if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
 		echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
@@ -322,149 +635,6 @@ while [ true ] ; do
 		break
 	fi
 done
-
-echo "Supported formats for video device $V4L2SRC_DEVICE:"
-v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
-
-# Audio capture sources
-echo "List of audio devices:"
-arecord -L | grep ^hw:
-
-# Set input settings
-SCREEN_WIDTH=$((${SCREEN_RESOLUTION%x*}))
-SCREEN_HEIGHT=$((${SCREEN_RESOLUTION#*x}))
-
-SCREEN_AR_X=$((${SCREEN_ASPECT_RATIO%:*}))
-SCREEN_AR_Y=$((${SCREEN_ASPECT_RATIO#*:}))
-
-PIXEL_AR_X=$((${PIXEL_ASPECT_RATIO%:*}))
-PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
-
-# Set output settings
-DISPLAY_WIDTH=$((${DISPLAY_RESOLUTION%x*}))
-DISPLAY_HEIGHT=$((${DISPLAY_RESOLUTION#*x}))
-
-DISPLAY_AR_X=$((${DISPLAY_ASPECT_RATIO%:*}))
-DISPLAY_AR_Y=$((${DISPLAY_ASPECT_RATIO#*:}))
-
-# Crop image in absolute screen coordinates
-CROPPED_SCREEN_WIDTH=$( echo "scale=0; $SCREEN_WIDTH * 0.965" | bc -l )
-CROPPED_SCREEN_WIDTH=$((${CROPPED_SCREEN_WIDTH%.*}))
-CROPPED_SCREEN_HEIGHT=$( echo "scale=0; $SCREEN_HEIGHT * 0.965" | bc -l )
-CROPPED_SCREEN_HEIGHT=$((${CROPPED_SCREEN_HEIGHT%.*}))
-CROP_X0=$( echo "scale=0; ( $SCREEN_WIDTH - $CROPPED_SCREEN_WIDTH ) * 0.5" | bc -l )
-CROP_X0=$((${CROP_X0%.*}))
-CROP_Y0=$( echo "scale=0; ( $SCREEN_HEIGHT - $CROPPED_SCREEN_HEIGHT ) * 0.5" | bc -l )
-CROP_Y0=$((${CROP_Y0%.*}))
-CROP_X1=$( echo "scale=0; $CROPPED_SCREEN_WIDTH + $CROP_X0" | bc -l )
-CROP_X1=$((${CROP_X1%.*}))
-CROP_Y1=$( echo "scale=0; $CROPPED_SCREEN_HEIGHT + $CROP_Y0" | bc -l )
-CROP_Y1=$((${CROP_Y1%.*}))
-
-# Scaler type for output scaling
-# 0 = nearest
-# 1 = bilinear
-# 2 = 5-tap
-# 3 = 10-tap
-# 4 = smart (default)
-# 5 = nicest
-SCALER_TYPE=5
-
-CONTROL_RATE=1
-# VBR or CBR
-# 1 = VBR
-# 2 = CBR
-# 3 = VBR skip frames
-# 4 = CBR skip frames
-CONTROL_RATE=2
-
-# Encoder speed & quality from bad to best
-# 0 = ultra fast preset
-# 1 = fast preset (default)
-# 2 = medium preset
-# 3 = slow preset
-VIDEO_QUALITY=3
-
-# Videoencoder bitrate in mbits per second
-VIDEO_TARGET_BITRATE=4.5
-
-# Videencoder peak bitrate in mbits per seconds
-# 0 = Default: 1.2 * VIDEO_TARGET_BITRATE
-VIDEO_PEAK_BITRATE=0
-
-# Audioencoder kbits per second
-AUDIO_BIT_RATE=160
-
-# Sampling rate in kHz
-AUDIO_SAMPLING_RATE=48000
-
-# Number of audio channels
-AUDIO_NUM_CH=2
-
-# Multiplexer
-#MUXER=mp4mux
-#MUXER=qtmux
-MUXER=flvmux
-
-VIDEO_TARGET_BITRATE=$( echo "scale=0; $VIDEO_TARGET_BITRATE * 1000000" | bc -l )
-VIDEO_TARGET_BITRATE=$((${VIDEO_TARGET_BITRATE%.*}))
-
-AUDIO_TARGET_BITRATE=$(($AUDIO_BIT_RATE*1000))
-
-if [ "$VIDEO_PEAK_BITRATE" = "$(echo '0')" ];
-	then
-		VIDEO_PEAK_BITRATE=$( echo "scale=0; $VIDEO_TARGET_BITRATE * 1.2" | bc -l )
-		VIDEO_PEAK_BITRATE=$((${VIDEO_PEAK_BITRATE%.*}))
-	else
-		VIDEO_PEAK_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE * 1000000" | bc -l )
-		VIDEO_PEAK_BITRATE=$((${VIDEO_PEAK_BITRATE%.*}))
-fi
-
-FRAMES_PER_SEC="$(($INPUT_FRAMERATE))/1"
-I_FRAME_INTERVAL=$(($INPUT_FRAMERATE*2))
-
-PIXEL_AR_X=$((${PIXEL_ASPECT_RATIO%:*}))
-PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
-
-PIXEL_ASPECT_RATIO="$PIXEL_AR_X/$PIXEL_AR_Y"
-
-# Overlay size
-OVL_POSITION_X=100
-OVL_POSITION_Y=100
-OVL_SIZE_X=640
-OVL_SIZE_Y=320
-
-# Overlay size
-OVL1_POSITION_X=840
-OVL1_POSITION_Y=100
-OVL1_SIZE_X=640
-OVL1_SIZE_Y=320
-
-# Show input settings
-echo "\nVideo input settings:"
-echo "\tScreen width=$SCREEN_WIDTH"
-echo "\tScreen height=$SCREEN_HEIGHT"
-echo "\tCapture framerate=$INPUT_FRAMERATE"
-echo "\tScreen aspect ratio: $SCREEN_AR_X:$SCREEN_AR_Y"
-echo "\tPixel aspect ratio: $PIXEL_AR_X:$PIXEL_AR_Y"
-# Show cropping values
-echo "Screen cropped to:"
-echo "\tUpper left corner coordinates"
-echo "\tX0=$CROP_X0, Y0=$CROP_Y0\n"
-echo "\t\tLower right corner coordinates"
-echo "\t\tX1=$CROP_X1, Y1=$CROP_Y1\n"
-echo "\tScreen safe area in width cropped to: $CROPPED_SCREEN_WIDTH"
-echo "\tScreen safe area in height cropped to: $CROPPED_SCREEN_HEIGHT"
-# Show output settings
-echo "Video output settings:"
-echo "\tDisplay width=$DISPLAY_WIDTH"
-echo "\tDisplay heigth=$DISPLAY_HEIGHT"
-echo "\tOutput framerate=$INPUT_FRAMERATE"
-echo "\tKeyframe interval per frames: $I_FRAME_INTERVAL"
-echo "\tDisplay aspect ratio: $DISPLAY_AR_X:$DISPLAY_AR_Y\n"
-echo "\tVideo H.264 target bitrate bits per second: $VIDEO_TARGET_BITRATE"
-echo "\tVideo H.264 peak bitrate per second: $VIDEO_PEAK_BITRATE"
-echo "\tAudio AAC bitrate bits per second: $AUDIO_BIT_RATE\n"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
@@ -553,11 +723,15 @@ fi
 
 # Read key press for stopping gestreamer pipeline
 while [ true ] ; do
+	echo "================================================================================"
 	echo "\tWrite the word 'quit' and enter to stop the stream!"
-	echo "\tENTER: 'quit' and RETURN\n"
+	echo "================================================================================"
+	echo "\tENTER: 'quit' and RETURN:\n"
 	read QUIT_STREAM
 	if [ "${QUIT_STREAM}" = "quit" ]; then
-		echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN AND RETURN!\n"
+		echo "================================================================================"
+		echo "\tARE YOU REALLY SURE? PLEASE ENTER THE WORD 'quit' AGAIN AND RETURN:"
+		echo "================================================================================"
 		read REALLY_QUIT_STREAM
 			if [ "${REALLY_QUIT_STREAM}" = "quit" ]; then
 				break
@@ -565,4 +739,7 @@ while [ true ] ; do
 	fi
 done
 kill -s 15 $PID_GSTREAMER_PIPELINE
-echo "\tSTREAM STOPPED!\n"
+echo "\n================================================================================\n"
+echo "\t\tSTREAM STOPPED!\n"
+echo "================================================================================"
+#
