@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-03-18
-# Version: 0.04n
+# Version: 0.04o
 # Developer: Marc Bayer
 #
 # Script for game capture live streaming to Twitch, YT, FB
@@ -411,6 +411,10 @@ while [ true ] ; do
 	FRAMES_PER_SEC="$(($INPUT_FRAMERATE))/1"
 	I_FRAME_INTERVAL=$(($INPUT_FRAMERATE*2))
 
+	if ( grep -q "pixelaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+
 	PIXEL_AR_X=$((${PIXEL_ASPECT_RATIO%:*}))
 	PIXEL_AR_Y=$((${PIXEL_ASPECT_RATIO#*:}))
 
@@ -563,7 +567,8 @@ while [ true ] ; do
 		echo "================================================================================"
 		echo "Your current configuration is set to no. $LAST_CONFIG"
 		echo "================================================================================"
-		echo "Enter the number of the preset you want to switch to:"
+		echo "ENTER: You can 'delete' the current preset with by typing 'delete' and enter or"
+		echo " enter the number of the preset you want to switch to or create a new one:"
 		read CHOOSE_FIGURE
 		if [ $CHOOSE_FIGURE -ge 1 ] && [ $CHOOSE_FIGURE -le $CONFIG_FIGURE ]; then
 			eval "LAST_CONFIG=\${CHOOSE_FIGURE}"
@@ -613,224 +618,432 @@ while [ true ] ; do
 			sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 			echo "last.config $CHOOSE_FIGURE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
-	# Create new preset
-	# Set video device
-	while [ true ] ; do
-		echo "================================================================================"
-		echo "List of capture devices:"
-		for V4L2SRC_DEVICE in /dev/video* ; do
-			echo "\t$V4L2SRC_DEVICE\n"
-			v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
-			echo
-		done
-		echo "Do you want to use this video device for main video in or another device?"
-		echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
-		echo "================================================================================"
-		echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE"
-		echo "================================================================================"
-		echo "ENTER: 'yes' or the path to another device:"
-		read OTHER_V4L2SRC_DEVICE
-		if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
-			echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
-			break
-		else
-			eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
-			sed -i "/videodev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "videodev.${LAST_CONFIG} $V4L2SRC_DEVICE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
-			break
-		fi
-	done
-	# End of setting video device
-	# Set input resolution
-	while [ true ] ; do
-		echo "================================================================================"
-		echo "Input resolutions:\n"
-		echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
-		echo " 2) 1360x768@60 - HD Ready, aspect 16:9, with 60 frames per second"
-		echo " 3) 1360x768@30 - HD Ready, aspect 16:9, with 60 frames per second"
-		echo " 4) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
-		echo " 5) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
-		echo " 6) 720x576@60 - PAL50/60, aspect 4:3 to 16:9 wide, with 60 frames per second"
-		echo " 7) 720x576@30 - PAL50/60, aspect 4:3 to 16:9 wide, with 30 frames per second"
-		echo " 8) 720x480@60 - NTSC, aspect 4:3 to 16:9 wide, with 60 frames per second"
-		echo " 9) 720x480@30 - NTSC, aspect 4:3 to 16:9 wide, with 30 frames per second"
-		echo "10) 640x480@60 - SDTV, aspect 4:3 to 16:9 wide, with 60 frames per second"
-		echo "11) 640x480@30 - SDTV, aspect 4:3 to 16:9 wide, with 30 frames per second"
-		echo "================================================================================"
-		echo "Choose an input resolution from the table. Type the number and press ENTER:"
-		read RESOLUTION_TABLE_IN
-		if [ $RESOLUTION_TABLE_IN -ge 1 ] && [ $RESOLUTION_TABLE_IN -le 11 ]; then
-			case $RESOLUTION_TABLE_IN in
-				1) TMP_SCREEN_RESOLUTION_=1920x1080
-				TMP_INPUT_FRAMERATE_=30
-				TMP_SCREEN_ASPECT_RATIO_=16:9
-				;;
-				2) TMP_SCREEN_RESOLUTION_=1360x768
-				TMP_INPUT_FRAMERATE_=60
-				TMP_SCREEN_ASPECT_RATIO_=16:9
-				;;
-				3) TMP_SCREEN_RESOLUTION_=1360x768
-				TMP_INPUT_FRAMERATE_=30
-				TMP_SCREEN_ASPECT_RATIO_=16:9
-				;;
-				4) TMP_SCREEN_RESOLUTION_=1280x720
-				TMP_INPUT_FRAMERATE_=60
-				TMP_SCREEN_ASPECT_RATIO_=16:9
-				;;
-				5) TMP_SCREEN_RESOLUTION_=1280x720
-				TMP_INPUT_FRAMERATE_=30
-				TMP_SCREEN_ASPECT_RATIO_=16:9
-				;;
-				6) TMP_SCREEN_RESOLUTION_=720x576
-				TMP_INPUT_FRAMERATE_=60
-				TMP_SCREEN_ASPECT_RATIO_=4:3
-				;;
-				7) TMP_SCREEN_RESOLUTION_=720x576
-				TMP_INPUT_FRAMERATE_=30
-				TMP_SCREEN_ASPECT_RATIO_=4:3
-				;;
-				8) TMP_SCREEN_RESOLUTION_=720x480
-				TMP_INPUT_FRAMERATE_=60
-				TMP_SCREEN_ASPECT_RATIO_=4:3
-				;;
-				9) TMP_SCREEN_RESOLUTION_=720x480
-				TMP_INPUT_FRAMERATE_=30
-				TMP_SCREEN_ASPECT_RATIO_=4:3
-				;;
-				10) TMP_SCREEN_RESOLUTION_=640x480
-				TMP_INPUT_FRAMERATE_=60
-				TMP_SCREEN_ASPECT_RATIO_=4:3
-				;;
-				11) TMP_SCREEN_RESOLUTION_=640x480
-				TMP_INPUT_FRAMERATE_=30
-				TMP_SCREEN_ASPECT_RATIO_=4:3
-				;;
-			esac
-			echo "================================================================================"
-			echo "Screen resolution (input) set to: $SCREEN_RESOLUTION@$INPUT_FRAMERATE"
-			echo "================================================================================"
+			# Create new preset
+			# Set video device
+			while [ true ] ; do
+				echo "================================================================================"
+				echo "List of capture devices:"
+				for V4L2SRC_DEVICE in /dev/video* ; do
+					echo "\t$V4L2SRC_DEVICE\n"
+					v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
+					echo
+				done
+				echo "Do you want to use this video device for main video in or another device?"
+				echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
+				echo "================================================================================"
+				echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE"
+				echo "================================================================================"
+				echo "ENTER: 'yes' or the path to another device:"
+				read OTHER_V4L2SRC_DEVICE
+				if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
+					echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
+					break
+				else
+					eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
+					sed -i "/videodev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "videodev.${LAST_CONFIG} $V4L2SRC_DEVICE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
+					break
+				fi
+			done
+			# End of setting video device
+			# Set input resolution
+			while [ true ] ; do
+				echo "================================================================================"
+				echo "Input resolutions:\n"
+				echo " 1) 1920x1080@60 - Full HD, aspect 16:9, with 60 frames per second"
+				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!"
+				echo " 2) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
+				echo " 3) 1360x768@60 - HD Ready, aspect 16:9, with 60 frames per second"
+				echo " 4) 1360x768@30 - HD Ready, aspect 16:9, with 60 frames per second"
+				echo " 5) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
+				echo " 6) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
+				echo " 7) 720x576@60 - PAL50/60, aspect 4:3 to 16:9 wide, with 60 frames per second"
+				echo " 8) 720x576@30 - PAL50/60, aspect 4:3 to 16:9 wide, with 30 frames per second"
+				echo " 9) 720x480@60 - NTSC, aspect 4:3 to 16:9 wide, with 60 frames per second"
+				echo "10) 720x480@30 - NTSC, aspect 4:3 to 16:9 wide, with 30 frames per second"
+				echo "11) 640x480@60 - SDTV, aspect 4:3 to 16:9 wide, with 60 frames per second"
+				echo "12) 640x480@30 - SDTV, aspect 4:3 to 16:9 wide, with 30 frames per second"
+				echo "================================================================================"
+				echo "Choose an input resolution from the table. Type the number and press ENTER:"
+				read RESOLUTION_TABLE_IN
+				if [ $RESOLUTION_TABLE_IN -ge 1 ] && [ $RESOLUTION_TABLE_IN -le 12 ]; then
+					case $RESOLUTION_TABLE_IN in
+						1) TMP_SCREEN_RESOLUTION_=1920x1080
+						TMP_INPUT_FRAMERATE_=60
+						TMP_SCREEN_ASPECT_RATIO_=16:9
+						;;
+						2) TMP_SCREEN_RESOLUTION_=1920x1080
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=16:9
+						;;
+						3) TMP_SCREEN_RESOLUTION_=1360x768
+						TMP_INPUT_FRAMERATE_=60
+						TMP_SCREEN_ASPECT_RATIO_=16:9
+						;;
+						4) TMP_SCREEN_RESOLUTION_=1360x768
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=16:9
+						;;
+						5) TMP_SCREEN_RESOLUTION_=1280x720
+						TMP_INPUT_FRAMERATE_=60
+						TMP_SCREEN_ASPECT_RATIO_=16:9
+						;;
+						6) TMP_SCREEN_RESOLUTION_=1280x720
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=16:9
+						;;
+						7) TMP_SCREEN_RESOLUTION_=720x576
+						TMP_INPUT_FRAMERATE_=60
+						TMP_SCREEN_ASPECT_RATIO_=4:3
+						;;
+						8) TMP_SCREEN_RESOLUTION_=720x576
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=4:3
+						;;
+						9) TMP_SCREEN_RESOLUTION_=720x480
+						TMP_INPUT_FRAMERATE_=60
+						TMP_SCREEN_ASPECT_RATIO_=4:3
+						;;
+						10) TMP_SCREEN_RESOLUTION_=720x480
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=4:3
+						;;
+						11) TMP_SCREEN_RESOLUTION_=640x480
+						TMP_INPUT_FRAMERATE_=60
+						TMP_SCREEN_ASPECT_RATIO_=4:3
+						;;
+						12) TMP_SCREEN_RESOLUTION_=640x480
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=4:3
+						;;
+					esac
+					echo "================================================================================"
+					echo "Screen resolution (input) set to: $SCREEN_RESOLUTION@$INPUT_FRAMERATE"
+					echo "================================================================================"
 
-			eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION_}"
-			sed -i "/screenres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "screenres.${LAST_CONFIG} $SCREEN_RESOLUTION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION_}"
+					sed -i "/screenres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "screenres.${LAST_CONFIG} $SCREEN_RESOLUTION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
-			eval "SCREEN_ASPECT_RATIO=\${TMP_SCREEN_ASPECT_RATIO_}"
-			sed -i "/screenaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "screenaspect.${LAST_CONFIG} $SCREEN_ASPECT_RATIO" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			break
-		fi
-	done
-	# End of setting input resolution
-	# Ask for cropping
-	while [ true ] ; do
-		echo "================================================================================"
-		echo "Do you want to crop the border of the picture of the video input?"
-		echo "The picture will be cropped about 3.5% of its border, e. g. for PAL/NTSC"
-		echo "analog signals from an analog to hdmi converter."
-		echo "Write 'yes'to cop image and 'no' for source, as it is, e. g. HD input signal."
-		echo "================================================================================"
-		echo "Crop input frames? Type 'yes' or 'no'?"
-		read ASK_FOR_CROP
-		case $ASK_FOR_CROP in
-			yes) TMP_FLAG_CROP_="yes"
-				eval "FLAG_CROP=\${TMP_FLAG_CROP_}"
-				sed -i "/crop.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				echo "crop.${LAST_CONFIG} $TMP_FLAG_CROP_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					eval "SCREEN_ASPECT_RATIO=\${TMP_SCREEN_ASPECT_RATIO_}"
+					sed -i "/screenaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "screenaspect.${LAST_CONFIG} $SCREEN_ASPECT_RATIO" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					break
+				fi
+			done
+			# End of setting input resolution
+			# Ask for cropping
+			while [ true ] ; do
+				echo "================================================================================"
+				echo "Do you want to crop the border of the picture of the video input?"
+				echo "The picture will be cropped about 3.5% of its border, e. g. for PAL/NTSC"
+				echo "analog signals from an analog to hdmi converter."
+				echo "Write 'yes'to cop image and 'no' for source, as it is, e. g. HD input signal."
+				echo "================================================================================"
+				echo "Crop input frames? Type 'yes' or 'no'?"
+				read ASK_FOR_CROP
+				case $ASK_FOR_CROP in
+					yes) TMP_FLAG_CROP_="yes"
+						eval "FLAG_CROP=\${TMP_FLAG_CROP_}"
+						sed -i "/crop.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "crop.${LAST_CONFIG} $TMP_FLAG_CROP_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						break
+					;;
+					no) TMP_FLAG_CROP_="no"
+						eval "FLAG_CROP=\${TMP_FLAG_CROP_}"
+						sed -i "/crop.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "crop.${LAST_CONFIG} $TMP_FLAG_CROP_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						break
+					;;
+				esac
+			done
+			# End of cropping dialog
+			# Set output resolution
+			while [ true ] ; do
+				echo "================================================================================"
+				echo "\tNOT RECOMMENDED, only for de disrepects and happy hobs in the life!\n"
+				echo "Output resolutions:\n"
+				echo " 4) 1920x1080@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
+				echo "\t^this works only with USB 3.x frame grabbers or HDMI to CSI-2!\n"
+				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!"
+				echo " 5) 1920x1080@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
+				echo " 6) 1360x768@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
+				echo " 7) 1360x768@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
+				echo " 8) 1280x720@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
+				echo "\t(6 megabits per second is the maximum ingest bitrate for Twitch.tv)"
+				echo "\tNOT RECOMMENDED!"
+				echo "================================================================================"
+				echo "\tRECOMMENDED!\n"
+				echo "Output resolutions:\n"
+				echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
+				echo " 2) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
+				echo " 3) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
+				echo "================================================================================"
+				echo "Choose an output resolution from the table. Type the number and press ENTER:"
+				read RESOLUTION_TABLE_OUT
+				if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 8 ]; then
+					case $RESOLUTION_TABLE_OUT in
+						1) TMP_DISPLAY_RESOLUTION_=1920x1080
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=30
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=4.5
+						;;
+						2) TMP_DISPLAY_RESOLUTION_=1280x720
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=60
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=4.5
+						;;
+						3) TMP_DISPLAY_RESOLUTION_=1280x720
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=30
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=3.5
+						;;
+						# Unsupported!
+						4) TMP_DISPLAY_RESOLUTION_=1920x1080
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=60
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
+						;;
+						5) TMP_DISPLAY_RESOLUTION_=1920x1080
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=30
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
+						;;
+						6) TMP_DISPLAY_RESOLUTION_=1360x768
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=60
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
+						;;
+						7) TMP_DISPLAY_RESOLUTION_=1360x768
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=30
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
+						;;
+						8) TMP_DISPLAY_RESOLUTION_=1280x720
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=60
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
+						;;
+					esac
+
+					SCREEN_AR_X=${SCREEN_ASPECT_RATIO%:*}
+					SCREEN_AR_Y=${SCREEN_ASPECT_RATIO#*:}
+
+					DISPLAY_AR_X=${DISPLAY_ASPECT_RATIO%:*}
+					DISPLAY_AR_Y=${DISPLAY_ASPECT_RATIO#*:}
+
+					PIXEL_AR_X=$( echo "scale=0; $DISPLAY_AR_X / $SCREEN_AR_X" | bc -l )
+					PIXEL_AR_X=${PIXEL_AR_X%.*}
+					PIXEL_AR_Y=$( echo "scale=0; $DISPLAY_AR_Y / $SCREEN_AR_Y" | bc -l )
+					PIXEL_AR_Y=${PIXEL_AR_Y%.*}
+
+					TMP_PIXEL_ASPECT_RATIO="$PIXEL_AR_X:$PIXEL_AR_Y"
+					PIXEL_ASPECT_RATIO="$PIXEL_AR_X:$PIXEL_AR_Y"
+					PIXEL_ASPECT_RATIO_GSTREAMER="$PIXEL_AR_X/$PIXEL_AR_Y"
+
+					eval "DISPLAY_RESOLUTION=\${TMP_DISPLAY_RESOLUTION_}"
+					sed -i "/displayres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "displayres.${LAST_CONFIG} $DISPLAY_RESOLUTION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+					eval "DISPLAY_ASPECT_RATIO=\${TMP_DISPLAY_ASPECT_RATIO_}"
+					sed -i "/displayaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "displayaspect.${LAST_CONFIG} $DISPLAY_ASPECT_RATIO" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+					eval "INPUT_FRAMERATE=\${TMP_OUTPUT_FRAMERATE_}"
+					sed -i "/inputframerate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "inputframerate.${LAST_CONFIG} $INPUT_FRAMERATE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+					eval "VIDEO_PEAK_BITRATE_MBPS=\${TMP_VIDEO_PEAK_BITRATE_MBPS_}"
+					sed -i "/bitrate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "bitrate.${LAST_CONFIG} $VIDEO_PEAK_BITRATE_MBPS" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+					eval "TMP_PIXEL_ASPECT_RATIO_=\${TMP_PIXEL_ASPECT_RATIO}"
+					sed -i "/pixelaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "pixelaspect.${LAST_CONFIG} $TMP_PIXEL_ASPECT_RATIO_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+					echo "================================================================================"
+					echo "Display resolution (input) set to: $DISPLAY_RESOLUTION@$INPUT_FRAMERATE"
+					echo "================================================================================"
+
+					break
+				fi
+			done
+			# End of setting output resolution
+			# Adjust picture
+			TMP_BRIGHTNESS_=0
+			TMP_CONTRAST_=0
+			TMP_SATURATION_=0
+			TMP_HUE_=0
+
+			# Implemented, but not working!
+			while [ true ]; do
+				#
+				echo "================================================================================"
+				echo "Set picture settings:\n"
+				echo "\tbrightness=$TMP_BRIGHTNESS_\t(value: -2147483648 < 0 > 2147483648)"
+				echo "\tcontrast=$TMP_CONTRAST_\t(value: -2147483648 < 0 > 2147483648)"
+				echo "\tsaturation=$TMP_SATURATION_\t(value: -2147483648 < 0 > 2147483648)"
+				echo "\thue=$TMP_HUE_\t(value: -2147483648 < 0 > 2147483648)\n"
+				echo "Check if your video game console outputs limited or extended RGB color range!"
+				echo "Check if your TV, monitor handles limited or (extended) RGB color on screen!"
+				echo "Limited RGB input will be streched on TVs, monitors with (extended) RGB color"
+				echo "enabled. The picture may look brighter than it comes from the console onscreen!"
+				echo "That's because limited RGB limits the range of the color values from 16 to 235."
+				echo "Extended RGB hasn't this limit, the range goes from 0 to 255."
+				echo "================================================================================"
+				echo "Adjust brightness, contrast, saturation and hue of the frame grabber."
+				echo "================================================================================"
+				echo "\tEnter a value in the range of -2147483648 to 2147483648."
+				echo "\tThe default value is '0'!\n"
+				echo
+				echo "PICTURE SETTING IS IMPLEMENTED, BUT THERE ARE SOME PROBLEMS WITH THE GSTREAMER"
+				echo " PLUGINS! MAYBE IN A FUTURE RELEASE."
+				echo "YOU CAN USE AN EXTERNAL VIDEO EQUALIZER, IF YOU HAVE ONE OR YOUR SIGNAL TO HDMI"
+				echo " CONVERTER, e. g. OSSC HARDWARE, HAS ONE."
+				echo "All values set to zero by default!"
+
+				# Stops execution of this part of the program
 				break
-			;;
-			no) TMP_FLAG_CROP_="no"
-				eval "FLAG_CROP=\${TMP_FLAG_CROP_}"
+				# Uncomment command for development and testing
+
+					while [ true ]; do
+						echo "Enter a value BRIGHTNESS=\c"
+						read TMP_BRIGHTNESS_
+						if [ $TMP_BRIGHTNESS_ -ge -2147483648 ] && [ $TMP_BRIGHTNESS_ -le 2147483648 ]; then
+							break
+						else
+							echo "Brightness value out of range ('-2147483648' < '0' < '2147483648')"
+						fi
+					done
+					while [ true ]; do
+						echo "Enter a value CONTRAST=\c"
+						read TMP_CONTRAST_
+						if [ $TMP_CONTRAST_ -ge -2147483648 ] && [ $TMP_CONTRAST_ -le 2147483648 ]; then
+							break
+						else
+							echo "Contrast value out of range ('-2147483648' < '0' < '2147483648')"
+						fi
+					done
+					while [ true ]; do
+						echo "Enter a value SATURATION=\c"
+						read TMP_SATURATION_
+						if [ $TMP_SATURATION_ -ge -2147483648 ] && [ $TMP_SATURATION_ -le 2147483648 ]; then
+							break
+						else
+							echo "Saturation value out of range ('-2147483648' < '0' < '2147483648')"
+						fi
+					done
+					while [ true ]; do
+						echo "Enter a value HUE=\c"
+						read TMP_HUE_
+						if [ $TMP_HUE_ -ge -2147483648 ] && [ $TMP_HUE_ -le 2147483648 ]; then
+							break
+						else
+							echo "Hue value out of range ('-2147483648' < '0' < '2147483648')"
+						fi
+					done
+
+
+					echo "================================================================================"
+					echo "\nYou can 'test' the picture settings with an video input signal, 'accept'"
+					echo " or 'remodify' its values.\n"
+					echo "'test' will write a 10 seconds video test file to your home directory, which"
+					echo "will be deleted afterward. Please, wait this time and don't stop the script!"
+					echo "The first window will show you the video input and a mplayer window will"
+					echo " show you the recorded file with your picture adjustments."
+					echo "================================================================================"
+
+					eval "BRIGHTNESS=\${TMP_BRIGHTNESS_}"
+					eval "CONTRAST=\${TMP_CONTRAST_}"
+					eval "SATURATION=\${TMP_SATURATION_}"
+					eval "HUE=\${TMP_HUE_}"
+
+					SCREEN_WIDTH=${SCREEN_RESOLUTION%x*}
+					SCREEN_HEIGHT=${SCREEN_RESOLUTION#*x}
+					DISPLAY_WIDTH=${DISPLAY_RESOLUTION%x*}
+					DISPLAY_HEIGHT=${DISPLAY_RESOLUTION#*x}
+
+					# Start a test
+					gst-launch-1.0 v4l2src \
+						brightness=$BRIGHTNESS \
+						contrast=$CONTRAST \
+						device=$V4L2SRC_DEVICE \
+						hue=$HUE \
+						io-mode=2 \
+						pixel-aspect-ratio=$PIXEL_ASPECT_RATIO_GSTREAMER \
+						saturation=$SATURATION \
+					! "image/jpeg,width=${SCREEN_WIDTH},height=${SCREEN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
+					! jpegparse \
+					! nvjpegdec \
+					! "video/x-raw" \
+					! nvvidconv \
+					! "video/x-raw(memory:NVMM)" \
+					! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
+					! nvvidconv interpolation-method=$SCALER_TYPE \
+					! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT},format=NV12" \
+					! nvoverlaysink \
+						overlay-x=0 \
+						overlay-y=0 \
+						overlay-w=$DISPLAY_WIDTH \
+						overlay-h=$DISPLAY_HEIGHT \
+						overlay=1 \
+						overlay-depth=1 \
+						sync=false \
+						async=false \
+					&
+					# Unstable pipeline and not working
+					# ! videobalance contrast=1.0 brightness=1.0 saturation=1.0 hue=0.0 \
+					# pipeline unstable
+
+					# Get the PID of the gestreamer pipeline
+					PID_GSTREAMER_TEST=$!
+					sleep 15
+					kill -s 15 $PID_GSTREAMER_TEST
+					# Exit endless loop
+					break
+				done
+				# End of not working
+					
+				eval "BRIGHTNESS=\${TMP_BRIGHTNESS_}"
+				sed -i "/brightness.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				echo "brightness.${LAST_CONFIG} $BRIGHTNESS" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+				eval "CONTRAST=\${TMP_CONTRAST_}"
+				sed -i "/contrast.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				echo "contrast.${LAST_CONFIG} $CONTRAST" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+				eval "SATURATION=\${TMP_SATURATION_}"
+				sed -i "/saturation.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				echo "saturation.${LAST_CONFIG} $SATURATION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+				eval "HUE=\${TMP_HUE_}"
+				sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				echo "hue.${LAST_CONFIG} $HUE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				# End of adjust picture
+
+				# End of create new preset
+			# Delete preset		
+			elif [ "$CHOOSE_FIGURE" = "delete" ] && [ $LAST_CONFIG -ne 1 ]; then
+				DEFAULT_CONFIG=1
+
+				sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				echo "last.config 1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/videodev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/screenres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/screenaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/displayres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/displayaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/inputframerate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/pixelaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/brightness.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/contrast.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/saturation.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				sed -i "/crop.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				echo "crop.${LAST_CONFIG} $TMP_FLAG_CROP_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				break
-			;;
-		esac
-	done
-	# End of cropping dialog
-	# Set output resolution
-	while [ true ] ; do
-		echo "================================================================================"
-		echo "Output resolutions:\n"
-		echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
-		echo " 2) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
-		echo " 3) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
-		echo "================================================================================"
-		echo "Choose an output resolution from the table. Type the number and press ENTER:"
-		read RESOLUTION_TABLE_OUT
-		if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 3 ]; then
-			case $RESOLUTION_TABLE_OUT in
-				1) TMP_DISPLAY_RESOLUTION_=1920x1080
-				TMP_DISPLAY_ASPECT_RATIO_=16:9
-				TMP_OUTPUT_FRAMERATE_=30
-				;;
-				2) TMP_DISPLAY_RESOLUTION_=1280x720
-				TMP_DISPLAY_ASPECT_RATIO_=16:9
-				TMP_OUTPUT_FRAMERATE_=60
-				;;
-				3) TMP_DISPLAY_RESOLUTION_=1280x720
-				TMP_DISPLAY_ASPECT_RATIO_=16:9
-				TMP_OUTPUT_FRAMERATE_=30
-				;;
-			esac
-
-			SCREEN_AR_X=${SCREEN_ASPECT_RATIO%:*}
-			SCREEN_AR_Y=${SCREEN_ASPECT_RATIO#*:}
-
-			DISPLAY_AR_X=${DISPLAY_ASPECT_RATIO%:*}
-			DISPLAY_AR_Y=${DISPLAY_ASPECT_RATIO#*:}
-
-			PIXEL_AR_X=$( echo "scale=0; $DISPLAY_AR_X / $SCREEN_AR_X" | bc -l )
-			PIXEL_AR_X=${PIXEL_AR_X%.*}
-			PIXEL_AR_Y=$( echo "scale=0; $DISPLAY_AR_Y / $SCREEN_AR_Y" | bc -l )
-			PIXEL_AR_Y=${PIXEL_AR_Y%.*}
-
-			TMP_PIXEL_ASPECT_RATIO="$PIXEL_AR_X:$PIXEL_AR_Y"
-			PIXEL_ASPECT_RATIO="$PIXEL_AR_X:$PIXEL_AR_Y"
-			PIXEL_ASPECT_RATIO_GSTREAMER="$PIXEL_AR_X/$PIXEL_AR_Y"
-
-			eval "DISPLAY_RESOLUTION=\${TMP_DISPLAY_RESOLUTION_}"
-			sed -i "/displayres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "displayres.${LAST_CONFIG} $DISPLAY_RESOLUTION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-
-			eval "DISPLAY_ASPECT_RATIO=\${TMP_DISPLAY_ASPECT_RATIO_}"
-			sed -i "/displayaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "displayaspect.${LAST_CONFIG} $DISPLAY_ASPECT_RATIO" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			# Set bitrate after evalutation
-			if [ "$DISPLAY_RESOLUTION" = "1920x1080" ] && [ "$TMP_OUTPUT_FRAMERATE_" = "30" ]; then
-				TMP_VIDEO_PEAK_BITRATE_MBPS_=4.5
-			elif [ "$DISPLAY_RESOLUTION" = "1280x720" ] && [ "$TMP_OUTPUT_FRAMERATE_" = "60" ]; then
-				TMP_VIDEO_PEAK_BITRATE_MBPS_=4.5
-			elif [ "$DISPLAY_RESOLUTION" = "1280x720" ] && [ "$TMP_OUTPUT_FRAMERATE_" = "30" ]; then
-				TMP_VIDEO_PEAK_BITRATE_MBPS_=3.5
-			else
-				echo "ERROR: Couldn't write bitrate and framerate into config file!"
-				exit
+				sed -i "/bitrate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				eval "LAST_CONFIG=\${DEFAULT_CONFIG}"
 			fi
-			#
-			eval "INPUT_FRAMERATE=\${TMP_OUTPUT_FRAMERATE_}"
-			sed -i "/inputframerate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "inputframerate.${LAST_CONFIG} $INPUT_FRAMERATE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-
-			eval "VIDEO_PEAK_BITRATE_MBPS=\${TMP_VIDEO_PEAK_BITRATE_MBPS_}"
-			sed -i "/bitrate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "bitrate.${LAST_CONFIG} $VIDEO_PEAK_BITRATE_MBPS" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-
-			eval "TMP_PIXEL_ASPECT_RATIO_=\${TMP_PIXEL_ASPECT_RATIO}"
-			sed -i "/pixelaspect.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "pixelaspect.${LAST_CONFIG} $TMP_PIXEL_ASPECT_RATIO_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-
-			echo "================================================================================"
-			echo "Display resolution (input) set to: $DISPLAY_RESOLUTION@$INPUT_FRAMERATE"
-			echo "================================================================================"
-
-			break
-		fi
-	done
-	# End of setting output resolution
-	# End of create new preset
-
-		fi
 		done
 		echo "================================================================================"
 		echo "Switched to configuration no. $LAST_CONFIG"
@@ -842,13 +1055,13 @@ done
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
 
-# gst-launch-1.0 $1 $MUXER streamable=true name=mux \
-# ! tee name=container0 \
-# ! queue \
-# ! rtmpsink location="${LIVE_SERVER}${STREAM_KEY}?bandwidth_test=false" sync=false async=false \
-gst-launch-1.0 $1 $MUXER name=mux \
+#gst-launch-1.0 $1 $MUXER name=mux \
+#! queue \
+#! filesink location="$HOME/video.mp4"  sync=false async=false \
+gst-launch-1.0 $1 $MUXER streamable=true name=mux \
+! tee name=container0 \
 ! queue \
-! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
+! rtmpsink location="${LIVE_SERVER}${STREAM_KEY}?bandwidth_test=false" sync=false async=false \
 \
 v4l2src \
 	brightness=$BRIGHTNESS \
@@ -909,7 +1122,7 @@ audiosrc0. \
 # \
 # container0. \
 # ! queue \
-# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4" \
+# ! filesink location="$HOME/video.mp4" \
 # > $CONFIG_DIR/gstreamer-debug-out.log &
 
 # Get the PID of the gestreamer pipeline
