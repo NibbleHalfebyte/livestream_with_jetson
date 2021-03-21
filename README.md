@@ -1,6 +1,6 @@
-# Video Game Capture with a NVIDIA Jetson Nano: Internet live streaming and compressed recording
-Linux shell script for video live streaming to Twitch, YouTube and Facebook with a NVIDIA Jetson Nano embedded computer
-
+Video Game Capture with a NVIDIA Jetson Nano: Internet live streaming and compressed recording
+This script is to live stream captured video games to Twitch TV. You need an payed Twitch account or Amazon Prime to stream. You can parallel record the stream to a storage device.
+Streaming to YouTube or Facebook should work, too. But you will have to modify the script on your own. The script makes use of Gstreamer and the RTMP protocol for network transfer. So every ingest server provider with RTMP should work.
 For first steps you will need a NVDIA Jetson Nano 4 GB with preinstalled, hardware accelerated GStreamer. I used JetPack 4.5.1, and a 15 bucks Macro Silicon HDMI to USB video capture stick. Other HDMI capture devices, CSI2 camera connector or USB and USB sound cards, which are supported by Video 4 Linux 2 on Ubuntu Linux 18.04, may work (at your own risk).
 
 For sound in and out you could use the Behringer UCA202 and plug in the game console, a mixer or whatever you want. It works out of the box with the NVIDIA Jetson Nano.
@@ -11,15 +11,44 @@ Add at the end of the default.pa file for Pulseaudio in /etc/pulse directory thi
 
 load-module module-remap-source source_name=macrosilicon-reverse-stereo master=alsa_input.usb-MACROSILICON_USB_Video-02.analog-mono channels=2 master_channel_map=front-right,front-left channel_map=front-left,front-right
 
-If you use the Behringer UCA202 or other devices, you can list the name of the audio output (sinks) with: pacmd list-sinks | grep -e 'index:' -e device.string -e 'name:'
+If you use the Behringer UCA202 or other devices, you can list the name of the audio output (sinks) with:
+
+pacmd list-sinks | grep -e 'index:' -e device.string -e 'name:'
 
 The audio inputs for the Behringer and other devices: pacmd list-sources | grep -e 'index:' -e device.string -e 'name:'
 
-Download the shell script, livestream_with_jetson.sh, (try git clone https://github.com/NibbleHalfebyte/livestream_with_jetson.git in your home directory,) and make the script executable with chmod ug+x livestream_with_jetson.sh. Open the script in an text editor of your choice and search for the variable STREAM_KEY="<your_streaming_key>" and change <your_streaming_key> to the stream key of your Twitch account in the account settings. Next change the script variable LIVE_SERVER="<see_server_list_for_your_country>". Change <see_server_list_for_your_country> to a server for stream ingestion, see https://stream.twitch.tv/ingests/ for a list of Twitch servers. Enter the full path! You can use Facebook and YouTube servers, too.
-To run the script open a xterminal window in the directory where you've downloaded the script and type ./livestream_with_jetson.sh and enter. Follow the dialog of the shell script.
+When you use an usb sound card don't forget to mute the Macro Silicon usb audio device or better disable it in ALSA or Pulsaudio.
 
-The default input resolution is set with the variables SCREEN_WIDTH=1920, SCREEN_HEIGHT=1080 and limited to 30 fps at 1080p. With input resolution less or equal 1280x720 pixels you can set the INPUT_FRAMERATE=30 variable to INPUT_FRAMERATE=60 fps in the output stream. The screen size is cropped about 3.5% to the safe area of a TV and upscaled to 1920x1980 (HD). If you use 60 fps and 1280x720, change the DISPLAY_WIDTH=1920 and DISPLAY_HEIGHT=1080 shell script variable to DISPLAY_WIDTH=1280, DISPLAY_HEIGHT=720. Doing so is very important or you use the default 30 fps. You can change the output bitrate in the script from the default 4.5 mbit/s up to 6 mbit/s or set it lower.
+Open a xterminal from your desktop on the Jetson Nano and clone the GitHub repository with:
 
-(At the end of the gstreamer command is a comment for hard disk recording the stream parallel to the live stream. For an usb hard drive you'll need a 5 Volt greater 4 Ampere barrel jack power supply. The hard drive can consume up to 10 Watts when it starts spinning!)
+git clone https://github.com/NibbleHalfebyte/livestream_with_jetson.git
+
+Change your directory to livestream_with_jetson with:
+
+cd livestream_with_jetson
+
+List the directory with the command ls -al and make the script executable with:
+
+chmod a+x livestream_with_jetson.sh
+
+Now you can check again with ls -al, if it's executable and run it with:
+
+./livestream_with_jetson.sh
+
+The script will ask you a few question. Keep your stream key from your Twitch Login ready and enter it if you'll be questioned. The script will save it into a configuration directory in your home directory with the path ~/.config/livestream_with_jetson_conf/. You will find all important files, which this script generates in this directory.
+
+Next the script will ask you to choose an ingest server in your area from a list. Enter the number of the server you want to use. You can find the list in the configuration directory, if you want to modify it. The file is named ingest_server.lst. It's copy and pasta text out of the browser, without empty lines, from Twitch Status. The server will be saved for future use.
+
+In the next dialog you can proceed with the default settings or add and save presets for future use of different video input and output resolutions and recording etc. This would come handy, if you have different game consoles with different output resolutions. You can also crop the border of the input signal about 3.5% to get rid of NTSC/PAL borders.
+
+After all you can start your live stream. Follow the text. When the video pipeline runs a onscreen overlay (For fail safe and the sake of speed.) will appear with the picture from the Video for Linux input source, normally /dev/video0.
+
+If you have problems, quit the script, unplug and replug your USB to HDMI frame grabber or do a reboot in the worst case. Don't use 60 frames per second with USB 2.0 frame grabber. The USB 2.0 port is limited in bandwidth! The script will set the frame rate always, no difference if video input or output, to the frame rate of the video stream. You can't change contrast, brightness, saturation and hue of the video in the pipeline. I tried it, but it didn't work with my frame grabber. To solve this you can use a some kind of consumer av electronics with an video equalizer.
 
 Have fun!
+
+Todo list:
+
+Support for a webcam or second frame grabber
+Video compositing with the NVIDIA Gstreamer plugin
+Picture in picture compositing
