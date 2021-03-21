@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-03-21
-# Version: 0.06a
+# Version: 0.1
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -131,10 +131,17 @@ fi
 
 # Check if stream key is empty
 if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
-	/usr/bin/chromium-browser "https://www.twitch.tv/login" &
-	PID_OF_BROWSER=$!
+	# /usr/bin/chromium-browser "https://www.twitch.tv/login" 2>&1 &
+	# PID_OF_BROWSER=$!
 	sleep 1
 
+	echo "================================================================================"
+	echo "\tYOU NEED A NVIDIA JETSON NANO FOR THIS SHELL SCRIPT!!!"
+	echo "\tElse you will need an USB2.0/USB3.x HDMI Framegrabber,"
+	echo "\tthese cheap Macro Silicon 2109 will, others may work,"
+	echo "\tand a usb soundcard, e. g. Behringer UCA202 will do it."
+	echo "================================================================================"
+	echo "\t\t'https://www.twitch.tv/login'"
 	echo "================================================================================"
 	echo "Please, enter your Twitch.tv stream key from your Twitch account!"
 	echo "Log the browser into your account and search the key in your account settings.\n"
@@ -147,7 +154,7 @@ if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
 	echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:"
 	read CREATE_STREAM_KEY
 	echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
-	kill -s 15 $PID_OF_BROWSER
+	# kill -s 15 $PID_OF_BROWSER
 else
 	echo "FILE WITH STREAM KEY $STREAM_KEY_FILE"
 	echo "\tWAS FOUND IN $CONFIG_DIR\n"
@@ -163,6 +170,8 @@ while [ true ]; do
 	case $CHANGE_KEY in
 		YES) #/usr/bin/chromium-browser "https://www.twitch.tv/login" &
 		     sleep 1
+		     echo "================================================================================"
+		     echo "\t\t'https://www.twitch.tv/login'"
 		     echo "================================================================================"
 		     echo "Please, enter your Twitch.tv stream key from your Twitch account.\n"
 		     echo "The key will be saved in this file:"
@@ -405,8 +414,8 @@ fi
 if ( grep -q "filepath.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	FILE_PATH=$(awk -v last=filepath.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "filepath.${LAST_CONFIG} $HOME" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-	eval "FILE_PATH=\${HOME}"
+	echo "filepath.${LAST_CONFIG} /dev/null" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	eval "FILE_PATH=/dev/null"
 fi
 
 # Ask to proceed or change the configuration
@@ -519,13 +528,13 @@ while [ true ] ; do
 	echo "PLEASE, SCROLL UP AND CHECK THE STREAM SETTINGS BEFORE YOU PROCEED!\n"
 	echo "Do your want to proceed and 'START' streaming or"
 	echo "do you want to 'change' the video settings or"
-	echo "do you want to 'exit'?"
+	echo "do you want to 'quit'?"
 	echo "================================================================================"
 	echo "ENTER: The keywords 'START' (in upper cases) for streaming, 'change' to change"
-	echo " the video configuration or 'exit' to abort the script:"
+	echo " the video configuration or 'quit' to abort the script:"
 	read ASK_FOR_TASK
 	case $ASK_FOR_TASK in
-		exit) exit
+		quit) exit
 		;;
 		START) break
 		;;
@@ -603,9 +612,7 @@ while [ true ] ; do
 			echo "\trecord=$PRINT_RECORD_VIDEO directory=$PRINT_FILE_PATH\n"
 			fi
 		done
-#		if [ $l = 2 ]; then
-#			break
-#		fi
+
 		NEW_PRESET=$( echo "scale=0; $CONFIG_COUNT + 1" | bc -l )
 		TEST_EMPTY=$( awk -v last=deleted. 'BEGIN {pattern = last ltr} $1 ~ pattern { print $1; exit }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 		if [ -z != $TEST_EMPTY ]; then
@@ -718,7 +725,7 @@ while [ true ] ; do
 				echo "================================================================================"
 				echo "Input resolutions:\n"
 				echo " 1) 1920x1080@60 - Full HD, aspect 16:9, with 60 frames per second"
-				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!"
+				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!\n"
 				echo " 2) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
 				echo " 3) 1360x768@60 - HD Ready, aspect 16:9, with 60 frames per second"
 				echo " 4) 1360x768@30 - HD Ready, aspect 16:9, with 60 frames per second"
@@ -833,8 +840,8 @@ while [ true ] ; do
 				echo "\tNOT RECOMMENDED, only for de disrepects and happy hobs in the life!\n"
 				echo "Output resolutions:\n"
 				echo " 4) 1920x1080@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
-				echo "\t^this works only with USB 3.x frame grabbers or HDMI to CSI-2!\n"
-				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!"
+				echo "\t^this works only with USB 3.x frame grabbers or HDMI to CSI-2!"
+				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!\n"
 				echo " 5) 1920x1080@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
 				echo " 6) 1360x768@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
 				echo " 7) 1360x768@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
@@ -843,9 +850,11 @@ while [ true ] ; do
 				echo "\tNOT RECOMMENDED!"
 				echo "================================================================================"
 				echo "\tRECOMMENDED!\n"
-				echo "Output resolutions:\n"
-				echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
+				echo "Output resolutions (sets out-/input framerate!):\n"
+				echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second\n"
 				echo " 2) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
+				echo "\t^this works only with USB 3.x frame grabbers or HDMI to CSI-2!"
+				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!\n"
 				echo " 3) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
 				echo "================================================================================"
 				echo "Choose an OUTPUT resolution from the table."
@@ -1125,7 +1134,7 @@ while [ true ] ; do
 							break
 						;;
 						no)	TMP_ASK_FOR_RECORDING_="no"
-							eval "ASK_FOR_PATH=\${HOME}"
+							eval "ASK_FOR_PATH=/dev/null"
 							break
 						;;
 					esac
@@ -1170,7 +1179,6 @@ while [ true ] ; do
 				fi
 				eval "LAST_CONFIG=\${DEFAULT_CONFIG}"
 			fi
-#		done
 		echo "================================================================================"
 		echo "Switched to configuration no. $LAST_CONFIG"
 		echo "================================================================================"
@@ -1228,36 +1236,36 @@ while [ true ]; do
 	echo "\tUse the Twitch.tv app for mobile device with your Twitch.tv"
 	echo "\t account or use a browser to set your stream name and what"
 	echo "\t you want to stream, e. g. the name of the video game,"
-	echo "\t retro gaming, RL, science or a hobby."
+	echo "\t retro gaming, RL, science or a hobby.\n"
+	echo "\tCheck your desktop audio mixer of the NVIDIA Jetson Nano and mute or"
+	echo "\t disable unused Pulseaudio sources!\n"
+	echo "\tCheck your stream with the Twitch app for mobile devices!"
 	echo "================================================================================"
 	echo "Type one more time the word 'START' (in upper cases) to begin streaming!"
 	echo "================================================================================"
-	echo "ENTER: 'START' (in upper cases) and ENTER:"
+	echo "ENTER: 'START' (in upper cases) or 'quit'and ENTER:"
 	read ASK_FINAL_START_STREAMING
 	if [ "$ASK_FINAL_START_STREAMING" = "START" ]; then
 		break
+	elif [ "$ASK_FINAL_START_STREAMING" = "quit" ]; then
+		exit
 	fi
 done
 
-# Stream only or parallel recording?
-PIPELINE_RECORDING="container0. ! queue ! filesink location='$FILE_PATH/$VIDEO_FILE' > $CONFIG_DIR/gstreamer-debug-out.log &"
-PIPELINE_STREAM_ONLY="> $CONFIG_DIR/gstreamer-debug-out.log &"
-
 if [ "$RECORD_VIDEO" = "yes" ]; then
-	eval "END_OF_PIPELINE=\${PIPELINE_RECORDING}"
+	FILE_PATH="${FILE_PATH}/${VIDEO_FILE}"
 else
-	eval "END_OF_PIPELINE=\${PIPELINE_STREAM_ONLY}"
+	FILE_PATH=/dev/null
 fi
+echo "Recording to: $FILE_PATH"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
-#gst-launch-1.0 $1 $MUXER name=mux \
-#! queue \
-#! filesink location="$HOME/video.mp4"  sync=false async=false \
+
 gst-launch-1.0 $1 $MUXER streamable=true name=mux \
 ! tee name=container0 \
 ! queue \
-! rtmpsink location="${LIVE_SERVER}${STREAM_KEY}?bandwidth_test=false" sync=false async=false \
+! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 v4l2src \
 	brightness=$BRIGHTNESS \
@@ -1314,13 +1322,10 @@ audiosrc0. \
 ! pulsesink mute=true \
 	sync=false \
 	async=false \
-$END_OF_PIPELINE
-# > $CONFIG_DIR/gstreamer-debug-out.log &
-# \
-# container0. \
-# ! queue \
-# ! filesink location="$HOME/video.mp4" \
-# > $CONFIG_DIR/gstreamer-debug-out.log &
+container0. \
+! queue \
+! filesink location=$FILE_PATH > $CONFIG_DIR/gstreamer-debug-out.log \
+&
 
 # Get the PID of the gestreamer pipeline
 PID_GSTREAMER_PIPELINE=$!
