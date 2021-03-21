@@ -1,13 +1,14 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-18
-# Version: 0.04o
+# Date: 2021-03-21
+# Version: 0.06a
 # Developer: Marc Bayer
+# Email: marc.f.bayer@gmail.com
 #
 # Script for game capture live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
-#
+# #blub
 # Usage: jetson_nano2livestream_twitch.sh
 #
 #	MacroSilicon MS2109 USB stick - uvcvideo kernel module
@@ -24,12 +25,20 @@
 # List input resolutions, e. g. usb device 001:005
 # lsusb -s 001:005 -v | egrep "Width|Height"
 
+# Date and time string
+DATE_TIME=`date +%F-%Hh%Mm%Ss`
+
 # File variables
 CONFIG_DIR=~/.config/livestream_with_jetson_conf
 STREAM_KEY_FILE=live_stream_with_jetson_stream.key
 INGEST_SERVER_LIST=ingest_server.lst
 INGEST_SERVER_URI=ingest_server.uri
 VIDEO_CONFIG_FILE=videoconfig.cfg
+
+VIDEO_FILE="video-${DATE_TIME}.mp4"
+
+# Video peak bitrate to standard bitrate ratio
+RATIO_BITRATE=0.9 # default = 0.8
 
 # Scaler type for output scaling
 # 0 = nearest
@@ -122,18 +131,23 @@ fi
 
 # Check if stream key is empty
 if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
-	#/usr/bin/chromium-browser "https://www.twitch.tv/login" &
+	/usr/bin/chromium-browser "https://www.twitch.tv/login" &
+	PID_OF_BROWSER=$!
 	sleep 1
+
 	echo "================================================================================"
-	echo "Please, enter your Twitch.tv stream key from your Twitch account!\n"
+	echo "Please, enter your Twitch.tv stream key from your Twitch account!"
+	echo "Log the browser into your account and search the key in your account settings.\n"
 	echo "The key will be saved in this file:"
 	echo "\t$STREAM_KEY_FILE\n"
 	echo "Your will find this file in this directory:"
 	echo "\t$CONFIG_DIR\n"
+	echo "The browser will be closed after entering the key."
 	echo "================================================================================"
 	echo "ENTER OR COPY THE STREAM KEY INTO THIS COMMAND LINE AND PRESS RETURN:"
 	read CREATE_STREAM_KEY
 	echo $CREATE_STREAM_KEY > $CONFIG_DIR/$STREAM_KEY_FILE
+	kill -s 15 $PID_OF_BROWSER
 else
 	echo "FILE WITH STREAM KEY $STREAM_KEY_FILE"
 	echo "\tWAS FOUND IN $CONFIG_DIR\n"
@@ -143,7 +157,7 @@ while [ true ]; do
 	echo "================================================================================"
 	echo "Do you want to (re)enter a new stream key?"
 	echo "================================================================================"
-	echo "ENTER: 'YES' (in upper-case) or 'no':"
+	echo "ENTER: 'YES' (in upper-cases) or 'no':"
 	read CHANGE_KEY
 	echo
 	case $CHANGE_KEY in
@@ -197,7 +211,7 @@ if [ -s $CONFIG_DIR/$INGEST_SERVER_URI ]; then
 		echo "Do you want to change the stream ingest server from your last session"
 		echo "to another server?"
 		echo "================================================================================"
-		echo "ENTER: 'YES' (in upper-case) or 'no' and press RETURN:"
+		echo "ENTER: 'YES' (in upper-cases) or 'no' and press RETURN:"
 		read CHANGE_INGEST_SERVER_URI
 		echo
 		case $CHANGE_INGEST_SERVER_URI in
@@ -381,6 +395,20 @@ else
 	VIDEO_PEAK_BITRATE_MBPS=4.5
 fi
 
+if ( grep -q "record.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	RECORD_VIDEO=$(awk -v last=record.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "record.${LAST_CONFIG} no" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	RECORD_VIDEO="no"
+fi
+
+if ( grep -q "filepath.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	FILE_PATH=$(awk -v last=filepath.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "filepath.${LAST_CONFIG} $HOME" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	eval "FILE_PATH=\${HOME}"
+fi
+
 # Ask to proceed or change the configuration
 while [ true ] ; do
 	# Set input settings
@@ -405,7 +433,7 @@ while [ true ] ; do
 	VIDEO_PEAK_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE_MBPS * 1000000 - $AUDIO_BIT_RATE * 1000" | bc -l )
 	VIDEO_PEAK_BITRATE=$((${VIDEO_PEAK_BITRATE%.*}))
 
-	VIDEO_TARGET_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE * 0.8" | bc -l )
+	VIDEO_TARGET_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE * $RATIO_BITRATE" | bc -l )
 	VIDEO_TARGET_BITRATE=$((${VIDEO_TARGET_BITRATE%.*}))
 
 	FRAMES_PER_SEC="$(($INPUT_FRAMERATE))/1"
@@ -477,19 +505,24 @@ while [ true ] ; do
 	echo "\t\t\tDisplay heigth=$DISPLAY_HEIGHT\n"
 	echo "\t\tVideo output framerate=$INPUT_FRAMERATE"
 	echo "\t\tVideo display aspect ratio=$DISPLAY_ASPECT_RATIO"
-	echo "\t\tKeyframe interval per frames=$I_FRAME_INTERVAL"
+	echo "\t\tKeyframe interval=$I_FRAME_INTERVAL"
 	echo "\t\tVideo H.264 peak bitrate per second=$VIDEO_PEAK_BITRATE"
 	echo "\t\tVideo H.264 target bitrate bits per second=$VIDEO_TARGET_BITRATE"
 	echo "\t\tAudio AAC bitrate bits per second=$AUDIO_TARGET_BITRATE\n"
+	echo "\tRecording video:"
+	echo "\t\tRecord video=$RECORD_VIDEO"
+	echo "\t\tRecording directory=$FILE_PATH"
 	# Ask
+	echo "================================================================================"
+	echo "Your current configuration is set to no. $LAST_CONFIG"
 	echo "================================================================================"
 	echo "PLEASE, SCROLL UP AND CHECK THE STREAM SETTINGS BEFORE YOU PROCEED!\n"
 	echo "Do your want to proceed and 'START' streaming or"
 	echo "do you want to 'change' the video settings or"
 	echo "do you want to 'exit'?"
 	echo "================================================================================"
-	echo "ENTER: The keywords 'START' for streaming, 'change' to change the video"
-	echo "configuration or 'exit' to abort the script:"
+	echo "ENTER: The keywords 'START' (in upper cases) for streaming, 'change' to change"
+	echo " the video configuration or 'exit' to abort the script:"
 	read ASK_FOR_TASK
 	case $ASK_FOR_TASK in
 		exit) exit
@@ -499,26 +532,28 @@ while [ true ] ; do
 		change) # List current configuration and ask to create new or edit current
 
 		# Count number of individual video configs
-		CONFIG_FIGURE=0
+		CONFIG_COUNT=0
 		VIDEO_CONFIG_LENGTH=`awk 'END{print NR}' $CONFIG_DIR/$VIDEO_CONFIG_FILE`
 		for j in `seq 1 $VIDEO_CONFIG_LENGTH` ; do
 			FIRST_STRING=$( awk -v n=$j 'NR==n { print $1 }' $CONFIG_DIR/$VIDEO_CONFIG_FILE )
 			if [ "$FIRST_STRING" = "last.config" ]; then
 				eval "FIRST_STRING=\${CONFIG_FIGURE}"
-			fi
-			TMP_CONFIG_FIGURE=${FIRST_STRING#*.}
-			if [ $TMP_CONFIG_FIGURE -ge $CONFIG_FIGURE ]; then
-				eval "CONFIG_FIGURE=\${TMP_CONFIG_FIGURE}"
+			elif [ "${FIRST_STRING%.*}" = "videodev" ]; then
+				CONFIG_COUNT=${FIRST_STRING#*.}
 			fi
 		done
+
 		echo "\n================================================================================"
-		echo "\t$CONFIG_FIGURE video configurations found."
+		echo "\t$CONFIG_COUNT video configurations found."
 		echo "================================================================================"
 		# List presets
-		for l in `seq 1 2` ; do
-		for k in `seq 1 $CONFIG_FIGURE` ; do
+#		for l in `seq 1 2` ; do
+		for k in `seq 1 $CONFIG_COUNT` ; do
 			if ( grep -q "videodev.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 				PRINT_VIDEODEV=$(awk -v last=videodev.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				CONFIG_FIGURE=$k
+			else
+				unset CONFIG_FIGURE # CONFIG_FIGURE=""
 			fi
 			if ( grep -q "screenres.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 				PRINT_SCREEN_RESOLUTION=$(awk -v last=screenres.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
@@ -556,67 +591,96 @@ while [ true ] ; do
 			if ( grep -q "saturation.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 				PRINT_SATURATION=$(awk -v last=saturation.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 			fi
+			if ( grep -q "record.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_RECORD_VIDEO=$(awk -v last=record.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "filepath.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_FILE_PATH=$(awk -v last=filepath.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if [ $CONFIG_FIGURE ]; then
 			echo "$k) $PRINT_VIDEODEV $PRINT_SCREEN_RESOLUTION@$PRINT_FRAMERATE ($PRINT_SCREEN_ASPECT_RATIO) -> $PRINT_DISPLAY_RESOLUTION@$PRINT_FRAMERATE ($PRINT_DISPLAY_ASPECT_RATIO) > $PRINT_VIDEO_PEAK_BITRATE mbps"
-			echo "\tcrop input size=$PRINT_FLAG_CROP, brightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION\n"
+			echo "\tcrop input size=$PRINT_FLAG_CROP, brightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION"
+			echo "\trecord=$PRINT_RECORD_VIDEO directory=$PRINT_FILE_PATH\n"
+			fi
 		done
-		if [ $l = 2 ]; then
-			break
+#		if [ $l = 2 ]; then
+#			break
+#		fi
+		NEW_PRESET=$( echo "scale=0; $CONFIG_COUNT + 1" | bc -l )
+		TEST_EMPTY=$( awk -v last=deleted. 'BEGIN {pattern = last ltr} $1 ~ pattern { print $1; exit }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+		if [ -z != $TEST_EMPTY ]; then
+			DELETE_STRING=$(awk -v last=deleted. 'BEGIN {pattern = last ltr} $1 ~ pattern { print $1; exit }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			EMPTY_FIGURE=${DELETE_STRING#*.}
+			eval "NEW_PRESET=\${EMPTY_FIGURE}"
+			unset TEST_EMPTY
 		fi
-		NEW_PRESET=$( echo "scale=0; $CONFIG_FIGURE + 1" | bc -l )
 		echo "$NEW_PRESET) NEW (Create a new preset)"
 		echo "================================================================================"
 		echo "Your current configuration is set to no. $LAST_CONFIG"
 		echo "================================================================================"
-		echo "ENTER: You can 'delete' the current preset with by typing 'delete' and enter or"
-		echo " enter the number of the preset you want to switch to or create a new one:"
+		echo "ENTER: You can 'delete' the current preset with by typing 'DELETE' (in upper"
+		echo " cases) and enter or enter the number of the preset you want to switch to or"
+		echo " create a new one:"
 		read CHOOSE_FIGURE
-		if [ $CHOOSE_FIGURE -ge 1 ] && [ $CHOOSE_FIGURE -le $CONFIG_FIGURE ]; then
-			eval "LAST_CONFIG=\${CHOOSE_FIGURE}"
-			sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "last.config $CHOOSE_FIGURE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			if ( grep -q "videodev.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				V4L2SRC_DEVICE=$(awk -v last=videodev.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+		if [ "$CHOOSE_FIGURE" != "DELETE" ]; then
+			if [ $CHOOSE_FIGURE -ge 1 ] && [ $CHOOSE_FIGURE -le $CONFIG_FIGURE ] && [ $CHOOSE_FIGURE -ne $NEW_PRESET ]; then
+				eval "LAST_CONFIG=\${CHOOSE_FIGURE}"
+				sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				echo "last.config $CHOOSE_FIGURE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+				sed -i "/deleted.|$CHOOSE_FIGURE|/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+				if ( grep -q "videodev.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					V4L2SRC_DEVICE=$(awk -v last=videodev.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "screenres.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					SCREEN_RESOLUTION=$(awk -v last=screenres.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "inputframerate.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					INPUT_FRAMERATE=$(awk -v last=inputframerate.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "screenaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					SCREEN_ASPECT_RATIO=$(awk -v last=screenaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "pixelaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "displayres.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					DISPLAY_RESOLUTION=$(awk -v last=displayres.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "displayaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					DISPLAY_ASPECT_RATIO=$(awk -v last=displayaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "bitrate.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					VIDEO_PEAK_BITRATE_MBPS=$(awk -v last=bitrate.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "crop.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					FLAG_CROP=$(awk -v last=crop.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "brightness.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					BRIGHTNESS=$(awk -v last=brightness.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "contrast.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					CONTRAST=$(awk -v last=contrast.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "hue.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					HUE=$(awk -v last=hue.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "saturation.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					SATURATION=$(awk -v last=saturation.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "record.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					RECORD_VIDEO=$(awk -v last=record.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "filepath.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					FILE_PATH=$(awk -v last=filepath.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
 			fi
-			if ( grep -q "screenres.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				SCREEN_RESOLUTION=$(awk -v last=screenres.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "inputframerate.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				INPUT_FRAMERATE=$(awk -v last=inputframerate.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "screenaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				SCREEN_ASPECT_RATIO=$(awk -v last=screenaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "pixelaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "displayres.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				DISPLAY_RESOLUTION=$(awk -v last=displayres.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "displayaspect.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				DISPLAY_ASPECT_RATIO=$(awk -v last=displayaspect.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "bitrate.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				VIDEO_PEAK_BITRATE_MBPS=$(awk -v last=bitrate.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "crop.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				FLAG_CROP=$(awk -v last=crop.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "brightness.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				BRIGHTNESS=$(awk -v last=brightness.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "contrast.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				CONTRAST=$(awk -v last=contrast.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "hue.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				HUE=$(awk -v last=hue.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-			if ( grep -q "saturation.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
-				SATURATION=$(awk -v last=saturation.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
-			fi
-		elif [ "$CHOOSE_FIGURE" = "$NEW_PRESET" ] ; then
+		fi
+		if [ "$CHOOSE_FIGURE" = "$NEW_PRESET" ] ; then
 			eval "LAST_CONFIG=\${NEW_PRESET}"
 			sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-			echo "last.config $CHOOSE_FIGURE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "last.config $LAST_CONFIG" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
 			# Create new preset
 			# Set video device
@@ -636,9 +700,11 @@ while [ true ] ; do
 				echo "ENTER: 'yes' or the path to another device:"
 				read OTHER_V4L2SRC_DEVICE
 				if [ "${OTHER_V4L2SRC_DEVICE}" = "yes" ]; then
+					sed -i "/videodev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+					echo "videodev.${LAST_CONFIG} $V4L2SRC_DEVICE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 					echo "Set Video for Linux 2 input device to: $V4L2SRC_DEVICE\n"
 					break
-				else
+				elif [ -e "${OTHER_V4L2SRC_DEVICE}" ]; then
 					eval "V4L2SRC_DEVICE=\${OTHER_V4L2SRC_DEVICE}"
 					sed -i "/videodev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 					echo "videodev.${LAST_CONFIG} $V4L2SRC_DEVICE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
@@ -665,7 +731,8 @@ while [ true ] ; do
 				echo "11) 640x480@60 - SDTV, aspect 4:3 to 16:9 wide, with 60 frames per second"
 				echo "12) 640x480@30 - SDTV, aspect 4:3 to 16:9 wide, with 30 frames per second"
 				echo "================================================================================"
-				echo "Choose an input resolution from the table. Type the number and press ENTER:"
+				echo "Choose an INPUT resolution from the table."
+				echo "ENTER: Type the number and press ENTER:"
 				read RESOLUTION_TABLE_IN
 				if [ $RESOLUTION_TABLE_IN -ge 1 ] && [ $RESOLUTION_TABLE_IN -le 12 ]; then
 					case $RESOLUTION_TABLE_IN in
@@ -719,7 +786,7 @@ while [ true ] ; do
 						;;
 					esac
 					echo "================================================================================"
-					echo "Screen resolution (input) set to: $SCREEN_RESOLUTION@$INPUT_FRAMERATE"
+					echo "Screen resolution (input) set to: $TMP_SCREEN_RESOLUTION_@$TMP_INPUT_FRAMERATE_"
 					echo "================================================================================"
 
 					eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION_}"
@@ -741,10 +808,11 @@ while [ true ] ; do
 				echo "analog signals from an analog to hdmi converter."
 				echo "Write 'yes'to cop image and 'no' for source, as it is, e. g. HD input signal."
 				echo "================================================================================"
-				echo "Crop input frames? Type 'yes' or 'no'?"
+				echo "Crop input frames?"
+				echo "ENTER: Type 'YES' (in upper cases) or 'no' and ENTER:"
 				read ASK_FOR_CROP
 				case $ASK_FOR_CROP in
-					yes) TMP_FLAG_CROP_="yes"
+					YES) TMP_FLAG_CROP_="yes"
 						eval "FLAG_CROP=\${TMP_FLAG_CROP_}"
 						sed -i "/crop.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 						echo "crop.${LAST_CONFIG} $TMP_FLAG_CROP_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
@@ -780,7 +848,8 @@ while [ true ] ; do
 				echo " 2) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
 				echo " 3) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
 				echo "================================================================================"
-				echo "Choose an output resolution from the table. Type the number and press ENTER:"
+				echo "Choose an OUTPUT resolution from the table."
+				echo "ENTER: Type the number and press ENTER:"
 				read RESOLUTION_TABLE_OUT
 				if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 8 ]; then
 					case $RESOLUTION_TABLE_OUT in
@@ -1021,10 +1090,62 @@ while [ true ] ; do
 				sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				echo "hue.${LAST_CONFIG} $HUE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				# End of adjust picture
+				# Ask for recording to file
+				while [ true ]; do
+					echo "================================================================================"
+					echo "You can record a backup of your stream to a file!\n"
+					echo "\tIF YOU USE AN USB3 HARDDISK DRIVE FOR RECORDING WITH THE"
+					echo "\t NVIDIA JETSON NANO YOU MUST USE AN EXTERNAL HDD WITH AN"
+					echo "\t EXTRA POWER SUPPLY OR YOU USE AN USB STICK!"
+					echo "\t The drive will be mounted in the directory /media/\n"
+					echo "Please, enter 'yes' or 'no'. The setting will be saved into your preset for"
+					echo " future use. If you enter 'yes' you will be asked in which directory the video"
+					echo " files should be saved. Enter the directory path,"
+					echo " for example'/media/<your user name>/video' or '/home/<your user name>'."
+					echo " Recording to SD Card is not recommended."
+					echo "================================================================================"
+					echo "ENTER: Do want to record your stream, 'YES' (in upper cases) or 'no':"
+					read ASK_FOR_RECORDING
+					case $ASK_FOR_RECORDING in
+						YES)	TMP_ASK_FOR_RECORDING_="yes"
+							sed -i "/record.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "record.${LAST_CONFIG} $ASK_FOR_RECORDING" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							while [ true ]; do
+								echo "Files will be saved as: $VIDEO_FILE"
+								echo "ENTER: Enter the full recording path:"
+								read ASK_FOR_PATH
+								echo "Input: $ASK_FOR_PATH"
+								if [ -d "$ASK_FOR_PATH" ]; then
+									echo "Path set to:\n$ASK_FOR_PATH"
+									break
+								else
+									echo "ERROR: $ASK_FOR_PATH is not a valid directory!"
+								fi
+							done
+							break
+						;;
+						no)	TMP_ASK_FOR_RECORDING_="no"
+							eval "ASK_FOR_PATH=\${HOME}"
+							break
+						;;
+					esac
+				done
 
+		eval "RECORD_VIDEO=\${TMP_ASK_FOR_RECORDING_}"
+		sed -i "/record.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+		echo "record.${LAST_CONFIG} $TMP_ASK_FOR_RECORDING_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+		eval "FILE_PATH=\${ASK_FOR_PATH}"
+		sed -i "/filepath.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+		echo "filepath.${LAST_CONFIG} $FILE_PATH" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+				# End of recording dialog
+			sed -i "/deleted.$NEW_PRESET/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			unset NEW_PRESET
 				# End of create new preset
-			# Delete preset		
-			elif [ "$CHOOSE_FIGURE" = "delete" ] && [ $LAST_CONFIG -ne 1 ]; then
+
+			# Delete preset	function
+			elif [ "$CHOOSE_FIGURE" = "DELETE" ] && [ $LAST_CONFIG -ne 1 ]; then
 				DEFAULT_CONFIG=1
 
 				sed -i "/last.config/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
@@ -1042,19 +1163,94 @@ while [ true ] ; do
 				sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				sed -i "/crop.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				sed -i "/bitrate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/record.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/filepath.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				if [ $CONFIG_COUNT -ne $LAST_CONFIG ]; then
+					echo "deleted.${LAST_CONFIG}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				fi
 				eval "LAST_CONFIG=\${DEFAULT_CONFIG}"
 			fi
-		done
+#		done
 		echo "================================================================================"
 		echo "Switched to configuration no. $LAST_CONFIG"
 		echo "================================================================================"
 		;;
 	esac
+	if ( grep -q "videodev.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		V4L2SRC_DEVICE=$(awk -v last=videodev.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "screenres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		SCREEN_RESOLUTION=$(awk -v last=screenres.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "inputframerate.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		INPUT_FRAMERATE=$(awk -v last=inputframerate.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "screenaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		SCREEN_ASPECT_RATIO=$(awk -v last=screenaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "pixelaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		PIXEL_ASPECT_RATIO=$(awk -v last=pixelaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "displayres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		DISPLAY_RESOLUTION=$(awk -v last=displayres.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "displayaspect.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		DISPLAY_ASPECT_RATIO=$(awk -v last=displayaspect.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "bitrate.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		VIDEO_PEAK_BITRATE_MBPS=$(awk -v last=bitrate.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "crop.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		FLAG_CROP=$(awk -v last=crop.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "brightness.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		BRIGHTNESS=$(awk -v last=brightness.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "contrast.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		CONTRAST=$(awk -v last=contrast.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "hue.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		HUE=$(awk -v last=hue.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "saturation.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		SATURATION=$(awk -v last=saturation.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "record.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		RECORD_VIDEO=$(awk -v last=record.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "filepath.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		FILE_PATH=$(awk -v last=filepath.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
 done
+
+while [ true ]; do
+	echo "================================================================================"
+	echo "\tUse the Twitch.tv app for mobile device with your Twitch.tv"
+	echo "\t account or use a browser to set your stream name and what"
+	echo "\t you want to stream, e. g. the name of the video game,"
+	echo "\t retro gaming, RL, science or a hobby."
+	echo "================================================================================"
+	echo "Type one more time the word 'START' (in upper cases) to begin streaming!"
+	echo "================================================================================"
+	echo "ENTER: 'START' (in upper cases) and ENTER:"
+	read ASK_FINAL_START_STREAMING
+	if [ "$ASK_FINAL_START_STREAMING" = "START" ]; then
+		break
+	fi
+done
+
+# Stream only or parallel recording?
+PIPELINE_RECORDING="container0. ! queue ! filesink location='$FILE_PATH/$VIDEO_FILE' > $CONFIG_DIR/gstreamer-debug-out.log &"
+PIPELINE_STREAM_ONLY="> $CONFIG_DIR/gstreamer-debug-out.log &"
+
+if [ "$RECORD_VIDEO" = "yes" ]; then
+	eval "END_OF_PIPELINE=\${PIPELINE_RECORDING}"
+else
+	eval "END_OF_PIPELINE=\${PIPELINE_STREAM_ONLY}"
+fi
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
-
 #gst-launch-1.0 $1 $MUXER name=mux \
 #! queue \
 #! filesink location="$HOME/video.mp4"  sync=false async=false \
@@ -1118,7 +1314,8 @@ audiosrc0. \
 ! pulsesink mute=true \
 	sync=false \
 	async=false \
-> $CONFIG_DIR/gstreamer-debug-out.log &
+$END_OF_PIPELINE
+# > $CONFIG_DIR/gstreamer-debug-out.log &
 # \
 # container0. \
 # ! queue \
