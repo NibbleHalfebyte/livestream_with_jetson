@@ -862,7 +862,7 @@ while [ true ] ; do
 				echo "Choose an OUTPUT resolution from the table."
 				echo "ENTER: Type the number and press ENTER:"
 				read RESOLUTION_TABLE_OUT
-				if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 8 ]; then
+				if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 10 ]; then
 					case $RESOLUTION_TABLE_OUT in
 						1) TMP_DISPLAY_RESOLUTION_=1920x1080
 						TMP_DISPLAY_ASPECT_RATIO_=16:9
