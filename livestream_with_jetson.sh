@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-21
-# Version: 0.1
+# Date: 2021-03-23
+# Version: 0.10a
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -846,6 +846,8 @@ while [ true ] ; do
 				echo " 6) 1360x768@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
 				echo " 7) 1360x768@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
 				echo " 8) 1280x720@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
+				echo " 9) 1280x720@30 - Full HD, aspect 16:9, with 30 fps, bitrate 4.5 Mbps!"
+				echo "10) 1920x1080@30 - Full HD, aspect 16:9, with 30 fps, bitrate 5.5 Mbps!"
 				echo "\t(6 megabits per second is the maximum ingest bitrate for Twitch.tv)"
 				echo "\tNOT RECOMMENDED!"
 				echo "================================================================================"
@@ -902,6 +904,16 @@ while [ true ] ; do
 						TMP_DISPLAY_ASPECT_RATIO_=16:9
 						TMP_OUTPUT_FRAMERATE_=60
 						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
+						;;
+						9) TMP_DISPLAY_RESOLUTION_=1280x720
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=30
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=4.5
+						;;
+						10) TMP_DISPLAY_RESOLUTION_=1920x1080
+						TMP_DISPLAY_ASPECT_RATIO_=16:9
+						TMP_OUTPUT_FRAMERATE_=30
+						TMP_VIDEO_PEAK_BITRATE_MBPS_=5.5
 						;;
 					esac
 
@@ -982,7 +994,7 @@ while [ true ] ; do
 				echo "All values set to zero by default!"
 
 				# Stops execution of this part of the program
-				break
+# break
 				# Uncomment command for development and testing
 
 					while [ true ]; do
