@@ -50,7 +50,7 @@ After all you can start your live stream. Follow the text. When the video pipeli
 
 I tested successfully live streaming with the HDMI Video Capture USB stick, Macro Silicon 2109 (for example these once), a not very expensive Behringer UCA202 and Logitech C270 usb webcam.
 
-If you have problems, quit the script, unplug and replug your USB to HDMI frame grabber or do a reboot in the worst case.
+If you have problems or installed a new version of this script delete in directory ".config/livestream_with_jetson_conf/" the "videoconfig.cfg". Other options are quit the script, unplug and replug your USB to HDMI frame grabber or do a reboot in the worst case.
 
 You can't change contrast, brightness, saturation and hue of the video in the pipeline, but it's on the todo list. To solve this temporary you can use a some kind of consumer av electronics with an video equalizer.
 
