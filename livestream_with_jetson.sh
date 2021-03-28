@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-27
-# Version: 0.13
+# Date: 2021-03-28
+# Version: 0.16
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -327,32 +327,31 @@ elif [ $CONFIG_DIR/$VIDEO_CONFIG_FILE ]; then
 	echo "\t$CONFIG_DIR/$VIDEO_CONFIG_FILE\n"
 fi
 
-# Video capture sources
-#echo "================================================================================\n"
-#for V4L2SRC_DEVICE in /dev/video* ; do
-#	v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
-#	echo
-#done
-#echo "================================================================================\n"
-#echo "Supported formats for video device $V4L2SRC_DEVICE:\n"
-#v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
-
 # Audio capture sources
-#echo "================================================================================\n"
-#echo "List of audio devices:"
-#echo "\nALSA output devices:"
-#aplay -L
-#echo "\nALSA input devices:"
-#arecord -L
-#echo "Pulseaudio output devices:"
-#pacmd list-sinks | grep -e 'index:' -e device.string -e 'name:'
-#echo "Pulseaudio input devices:"
-#pacmd list-sources | grep -e 'index:' -e device.string -e 'name:'
-#echo "\n================================================================================"
+echo "================================================================================\n"
+echo "List of audio devices:"
+echo "\nALSA output devices:"
+aplay -L
+echo "\nALSA input devices:"
+arecord -L
+echo "Pulseaudio output devices:"
+pacmd list-sinks | grep -e 'index:' -e device.string -e 'name:'
+echo "Pulseaudio input devices:"
+pacmd list-sources | grep -e 'index:' -e device.string -e 'name:'
+echo "\n================================================================================"
 
-# Set default video devices (hardcoded) for Macro Silicon 2109 & Logitech C270
-V4L2SRC_DEVICE=/dev/video0
-V4L2SRC_CAMERA=/dev/video1
+# Set default video devices, e. g. Macro Silicon 2109 & Logitech C270
+V4L2SRC_DEVICE=`v4l2-ctl --list-devices | awk '/Video/ { getline; print $1}'`
+V4L2SRC_CAMERA=`v4l2-ctl --list-devices | awk '/Camera/ { getline; print $1}'`
+echo "Found Video: $V4L2SRC_DEVICE\n"
+echo "Found Camera: $V4L2SRC_CAMERA"
+
+if [ -z ${V4L2SRC_DEVICE+x} ]; then
+	V4L2SRC_DEVICE="/dev/video0"
+fi
+if [ -z ${V4L2SRC_CAMERA+x} ]; then
+	V4L2SRC_CAMERA="/dev/video1"
+fi
 
 # Create default video config and print results
 LAST_CONFIG=1
@@ -512,12 +511,6 @@ else
 	OVERLAY_CAMERA_POS=topleft
 fi
 
-# Wait for Video4Linux2
-#for c in `seq 1 7`; do
-#	sleep 1
-#	echo "Please, wait, Video4Linux2 needs $c seconds!"
-#done
-
 # Ask to proceed or change the configuration
 while [ true ] ; do
 	# Set input settings
@@ -635,6 +628,11 @@ while [ true ] ; do
 	echo "\t\tCamera input device=$V4L2SRC_CAMERA"
 	echo "\t\tCamera input resolution=$CAMERA_RESOLUTION"
 	echo "\t\tCamera position=$OVERLAY_CAMERA_POS"
+	# Break for v4l2-ctl
+	for c in `seq 1 5`; do
+		sleep 1
+		echo "Please, wait $c seconds!"
+	done
 	# Ask
 	echo "\n================================================================================"
 	echo "Your current configuration is set to no. $LAST_CONFIG"
@@ -764,7 +762,7 @@ while [ true ] ; do
 		echo "Your current configuration is set to no. $LAST_CONFIG"
 		echo "================================================================================"
 		echo "ENTER: You can delete the current preset with by typing 'DELETE' (in upper"
-		echo " cases) and enter or enter the number of the preset you want to switch to or"
+		echo " cases) or enter the number of the preset you want to switch to or"
 		echo " create a new one:"
 		read CHOOSE_FIGURE
 		if [ "$CHOOSE_FIGURE" != "DELETE" ]; then
@@ -853,7 +851,10 @@ while [ true ] ; do
 				echo "\tE. G. Macro Silicon 2109 HDMI Video Capture USB works very well!\n"
 				echo "List of capture devices:"
 				v4l2-ctl --list-devices
-				echo "Do you want to use this video device for main video in or another device?"
+				echo "Found video input source:"
+				echo "\t\c"
+				v4l2-ctl --list-devices | awk '/Video/ { getline; print $1}'
+				echo "\nDo you want to use this video device for main video in or another device?"
 				echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
 				echo "================================================================================"
 				echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE"
@@ -932,7 +933,7 @@ while [ true ] ; do
 					esac
 					echo "================================================================================"
 					echo "Screen resolution (input) set to: $TMP_SCREEN_RESOLUTION_@$TMP_INPUT_FRAMERATE_"
-					echo "================================================================================"
+					echo "================================================================================\n"
 
 					eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION_}"
 					sed -i "/screenres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
@@ -953,7 +954,7 @@ while [ true ] ; do
 				echo "Do you want to crop the border of the picture of the video input?"
 				echo "The picture will be cropped about 3.5% of its border, e. g. for PAL/NTSC"
 				echo "analog signals from an analog to hdmi converter."
-				echo "Write 'yes'to cop image and 'no' for source, as it is, e. g. HD input signal."
+				echo "Write 'yes'to crop image and 'no' for source, as it is, e. g. HD input signal."
 				echo "================================================================================"
 				echo "Crop input frames?"
 				echo "ENTER: Type 'YES' (in upper cases) or 'no' and ENTER:"
@@ -977,10 +978,6 @@ while [ true ] ; do
 			# Set output resolution
 			while [ true ] ; do
 				echo "================================================================================"
-				echo "\t\t NOT MORE CHOICE IN A MODERN WORLD."
-				echo "\tTHE HARDWARE ENCODER/DECODER VIDEO PIPELINE OF THE JETSON NANO"
-				echo "\t\tIS FIX AND IT CAN ONLY HANDLE FOUR 1080p30 COMPOSITINGS\n"		
-				echo "\tRECOMMENDED!\n"
 				echo "Output resolutions (sets out-/input framerate!):\n"
 				echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second\n"
 				echo " 2) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
@@ -1076,7 +1073,7 @@ while [ true ] ; do
 				echo " PLUGINS! MAYBE IN A FUTURE RELEASE."
 				echo "YOU CAN USE AN EXTERNAL VIDEO EQUALIZER, IF YOU HAVE ONE OR YOUR SIGNAL TO HDMI"
 				echo " CONVERTER, e. g. OSSC HARDWARE, HAS ONE."
-				echo "All values set to zero by default!"
+				echo "All values set to zero by default!\n"
 
 				# Stops execution of this part of the program
 				break
@@ -1272,6 +1269,8 @@ while [ true ] ; do
 					echo "E. g. Logitech C270, other brands may work, too. The image will be scaled.\n"
 					echo "List of video devices:"
 					v4l2-ctl --list-devices
+					echo "Found camera:"
+					v4l2-ctl --list-devices | awk '/Camera/ { getline; print $1}'
 					echo "Do you want to use this video device a camera input or another device?"
 					echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
 					echo "================================================================================"
@@ -1295,6 +1294,8 @@ while [ true ] ; do
 				# Set input resolution
 				while [ true ] ; do
 					echo "================================================================================"
+					echo "Please, choose a low resolution for picture in picture with game streaming!"
+					echo " 640x360 should be ok.\n"
 					echo "Camera input resolutions:\n"
 					echo " 1) 1280x720 USB Webcam, MJPEG"
 					echo " 2) 1024x576 USB Webcam, MJPEG"
@@ -1523,7 +1524,56 @@ while [ true ] ; do
 	fi
 done
 
-# Wake up drive from sleep state (in case of HDD)
+# Check your webcam
+gst-launch-1.0 v4l2src \
+	device=$V4L2SRC_CAMERA \
+	io-mode=2 \
+! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=${FRAMES_PER_SEC}" \
+! nvjpegdec \
+! "video/x-raw" \
+! nvvidconv \
+! "video/x-raw(memory:NVMM),format=NV12" \
+! nvoverlaysink \
+	overlay-x=$OVL2_POSITION_X \
+	overlay-y=$OVL2_POSITION_Y \
+	overlay-w=$OVL2_SIZE_X \
+	overlay-h=$OVL2_SIZE_Y \
+	overlay=2 \
+	overlay-depth=1 \
+	sync=false \
+	async=false \
+&
+# Get the PID of the gestreamer pipeline
+PID_CAMERA_OVERLAY=$!
+
+while [ true ]; do
+	echo "================================================================================\n"
+	echo "\tCheck a last time your webcam positioning with the overlay!\n"
+	echo "================================================================================"
+	echo "Type 'ok' after you've checked the webcam positioning or 'quit' to exit!"
+	echo "================================================================================"
+	echo "ENTER: 'ok' or 'quit'and ENTER:"
+	read ASK_WEBCAM_CHECK
+	if [ "$ASK_WEBCAM_CHECK" = "ok" ]; then
+		# Close overlay
+		kill -s 15 $PID_CAMERA_OVERLAY
+		break
+	elif [ "$ASK_WEBCAM_CHECK" = "quit" ]; then
+		# Close overlay
+		kill -s 15 $PID_CAMERA_OVERLAY
+		exit
+	fi
+done
+
+# Close overlay
+kill -s 15 $PID_CAMERA_OVERLAY
+
+for d in `seq 1 7`; do
+	sleep 1
+	echo "Please, wait $d seconds!"
+done
+
+# Wake up drive from sleep state (in case of magnetic HDD)
 ls -alh $FILE_PATH
 
 # Flush the toilet
@@ -1632,23 +1682,14 @@ eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
-# gst-launch-1.0 $1 $MUXER name=mux \
-# queue \
-# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
-# GStreamer v4l2src with mjpeg must have the mmap option enabled!
 #
-#gst-launch-1.0 $1 $MUXER streamable=true name=mux \
-#! tee name=container0 \
-#! queue \
-#! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=true async=false \
-echo "framerate=${FRAMES_PER_SEC}"
-echo "DISPLAY_WIDTH=$DISPLAY_WIDTH, DISPLAY_HEIGHT=$DISPLAY_HEIGHT"
-echo "SCREEN_WIDTH=$SCREEN_WIDTH, SCREEN_HEIGHT=$SCREEN_HEIGHT"
-echo "VIEW_WIDTH=$VIEW_WIDTH, VIEW_HEIGHT=$VIEW_HEIGHT"
-echo "BG Path=$BG_PATH"
-echo "BG File=$BG_FILE"
-echo "PAR=$PIXEL_ASPECT_RATIO_GSTREAMER"
-
+# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
+#
+# and for streaming back to
+#
+# ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
+#
+# GStreamer v4l2src with mjpeg must have the mmap option enabled!
 gst-launch-1.0 nvcompositor name=comp \
 sink_0::xpos=0 sink_0::ypos=0 sink_0::width=$DISPLAY_WIDTH sink_0::height=$DISPLAY_HEIGHT \
 sink_1::xpos=$VIEW_POS_X sink_1::ypos=$VIEW_POS_Y sink_1::width=$VIEW_WIDTH sink_1::height=$VIEW_HEIGHT \
@@ -1671,8 +1712,8 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 	streamable=true \
 	metadatacreator="NVIDIA Jetson Nano/GStreamer 1.14.5 FLV muxer" \
 	name=mux \
-! queue max-size-buffers=1 max-size-bytes=65536 \
 ! tee name=container0 \
+! queue \
 ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 multifilesrc location="${BG_PATH}/${BG_FILE}" \
@@ -1713,12 +1754,15 @@ v4l2src \
 	device=$V4L2SRC_CAMERA \
 	io-mode=2 \
 ! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=${FRAMES_PER_SEC}" \
+! jpegparse \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
 ! "video/x-raw(memory:NVMM),format=NV12" \
 ! nvvidconv interpolation-method=$SCALER_TYPE \
 ! "video/x-raw(memory:NVMM),width=$CAM_WIDTH,height=$CAM_HEIGHT" \
+! tee name=videocam0 \
+! queue \
 ! comp. \
 \
 alsasrc \
@@ -1735,6 +1779,17 @@ videosrc0. \
 	overlay-w=$OVL1_SIZE_X \
 	overlay-h=$OVL1_SIZE_Y \
 	overlay=1 \
+	overlay-depth=1 \
+	sync=false \
+	async=false \
+\
+videocam0. \
+! nvoverlaysink \
+	overlay-x=$OVL2_POSITION_X \
+	overlay-y=$OVL2_POSITION_Y \
+	overlay-w=$OVL2_SIZE_X \
+	overlay-h=$OVL2_SIZE_Y \
+	overlay=2 \
 	overlay-depth=1 \
 	sync=false \
 	async=false \
