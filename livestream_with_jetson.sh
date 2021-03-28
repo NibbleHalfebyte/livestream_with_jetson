@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-21
-# Version: 0.1
+# Date: 2021-03-28
+# Version: 0.16
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -29,16 +29,22 @@
 DATE_TIME=`date +%F-%Hh%Mm%Ss`
 
 # File variables
-CONFIG_DIR=~/.config/livestream_with_jetson_conf
+CONFIG_DIR=$HOME/.config/livestream_with_jetson_conf
 STREAM_KEY_FILE=live_stream_with_jetson_stream.key
 INGEST_SERVER_LIST=ingest_server.lst
 INGEST_SERVER_URI=ingest_server.uri
 VIDEO_CONFIG_FILE=videoconfig.cfg
+# %04d = 0000, 0001...
+# %03d = 000, 001, 002,...
+BG_FILE=bg_black.%04d.jpg
 
 VIDEO_FILE="video-${DATE_TIME}.mp4"
 
 # Video peak bitrate to standard bitrate ratio
 RATIO_BITRATE=0.9 # default = 0.8
+
+# queue default 200 bytes
+QUEUE_SIZE=200
 
 # Scaler type for output scaling
 # 0 = nearest
@@ -64,31 +70,48 @@ CONTROL_RATE=2
 # 3 = slow preset
 VIDEO_QUALITY=3
 
-# Audioencoder kbits per second
-AUDIO_BIT_RATE=160
+# H.264 encoder profile
+# 1 = baseline profile (video conference)
+# 2 = main profile (broadcast)
+# 8 = high profile (High Definition broadcast)
+H264_PROFILE=8
 
-# Sampling rate in kHz
-AUDIO_SAMPLING_RATE=48000
+# Set cabac-entropy-coding for H.264
+CABAC=true
+
+# Audioencoder kbits per second
+#AUDIO_BIT_RATE=160
+AUDIO_BIT_RATE=128
+
+# Sampling rate in kHz (default for video 48kHz)
+# But flvmux can't handle 48kHz correctly
+AUDIO_SAMPLING_RATE=44100
+#AUDIO_SAMPLING_RATE=48000
 
 # Number of audio channels
 AUDIO_NUM_CH=2
 
-# Multiplexer
-#MUXER=mp4mux
-#MUXER=qtmux
-MUXER=flvmux
-
 # Overlay size
-OVL_POSITION_X=100
-OVL_POSITION_Y=100
-OVL_SIZE_X=640
-OVL_SIZE_Y=320
-
-# 2nd Overlay size
-OVL1_POSITION_X=840
-OVL1_POSITION_Y=100
+OVL1_POSITION_X=0
+OVL1_POSITION_Y=64
 OVL1_SIZE_X=640
 OVL1_SIZE_Y=320
+
+# 2nd Overlay size
+OVL2_POSITION_X=640
+OVL2_POSITION_Y=64
+OVL2_SIZE_X=640
+OVL2_SIZE_Y=320
+
+# 3rd Overlay size
+OVL3_POSITION_X=1280
+OVL3_POSITION_Y=64
+OVL3_SIZE_X=640
+OVL3_SIZE_Y=320
+
+# Background with border
+VIEW_POS_X=0
+VIEW_POS_Y=0
 
 # Clean terminal
 reset
@@ -129,6 +152,40 @@ elif [ $CONFIG_DIR/$INGEST_SERVER_URI ]; then
 	echo "\t$CONFIG_DIR/$INGEST_SERVER_URI\n"
 fi
 
+# Copy default background config directory
+while [ ! `find $CONFIG_DIR -name bg_black.0000.jpg 2> /dev/null` ]; do
+	cp `find $HOME -name bg_black.0000.jpg 2> /dev/null` $CONFIG_DIR 2> /dev/null
+	if [ `find $CONFIG_DIR -name bg_black.0000.jpg` ]; then
+		echo "'bg_black.0000.jpg' found in $CONFIG_DIR/\n"
+		break
+	else
+		echo "\nCAN'T FIND FILE 'bg_black.0000.jpg' AND COPY TO:"
+		echo "\t$CONFIG_DIR/\n"
+		echo "\tPLEASE, COPY THE FILE 'bg_black.0000.jpg' INTO YOUR HOME" 
+		echo "\tDIRECTORY AND RERUN livestream_with_jetson.sh !\n"
+		exit
+	fi
+done
+
+# Twitch server for your country, see https://stream.twitch.tv/ingests/
+# Search for 'ingest_server.lst', comes with the git repository
+# or copy and paste the servers from https://twitchstatus.com/
+
+# Copy ingest server list to config directory
+while [ ! `find $CONFIG_DIR -name $INGEST_SERVER_LIST 2> /dev/null` ]; do
+	cp `find $HOME -name $INGEST_SERVER_LIST 2> /dev/null` $CONFIG_DIR 2> /dev/null
+	if [ `find $CONFIG_DIR -name $INGEST_SERVER_LIST` ]; then
+		echo "$INGEST_SERVER_LIST found in $CONFIG_DIR/\n"
+		break
+	else
+		echo "\nCAN'T FIND FILE '$INGEST_SERVER_LIST' AND COPY TO:"
+		echo "\t$CONFIG_DIR/\n"
+		echo "\tPLEASE, COPY THE FILE '$INGEST_SERVER_LIST' INTO YOUR HOME" 
+		echo "\tDIRECTORY AND RERUN livestream_with_jetson.sh !\n"
+		exit
+	fi
+done
+
 # Check if stream key is empty
 if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
 	# /usr/bin/chromium-browser "https://www.twitch.tv/login" 2>&1 &
@@ -140,6 +197,13 @@ if [ `find $CONFIG_DIR -empty -name $STREAM_KEY_FILE` ]; then
 	echo "\tElse you will need an USB2.0/USB3.x HDMI Framegrabber,"
 	echo "\tthese cheap Macro Silicon 2109 will, others may work,"
 	echo "\tand a usb soundcard, e. g. Behringer UCA202 will do it."
+	echo "\tAs USB webcam any brand with an MJPEG output of 1280x720p"
+	echo "\t with 30 frames per second should work, e. g. the"
+	echo "\t Logitech C270 USB webcam or better."
+	echo "IMPORTANT: Switch the NVIDIA Jetson Nano to full clock"
+	echo "\t speed with the command 'sudo jetson_clocks'!"
+	echo "\t Or, modify rc.local for setting the clocks to full"
+	echo "\t compute power after every restart!"
 	echo "================================================================================"
 	echo "\t\t'https://www.twitch.tv/login'"
 	echo "================================================================================"
@@ -198,21 +262,6 @@ STREAM_KEY=$(cat $CONFIG_DIR/$STREAM_KEY_FILE)
 # Twitch server for your country, see https://stream.twitch.tv/ingests/
 # Search for 'ingest_server.lst', comes with the git repository
 # or copy and paste the servers from https://twitchstatus.com/
-
-# Copy ingest server list to config directory
-while [ ! `find $CONFIG_DIR -name $INGEST_SERVER_LIST 2> /dev/null` ]; do
-	cp `find ~ -name $INGEST_SERVER_LIST 2> /dev/null` $CONFIG_DIR 2> /dev/null
-	if [ `find $CONFIG_DIR -name $INGEST_SERVER_LIST` ]; then
-		echo "\n$INGEST_SERVER_LIST found in $CONFIG_DIR/"
-		break
-	else
-		echo "\nCAN'T FIND FILE '$INGEST_SERVER_LIST' AND COPY TO:"
-		echo "\t$CONFIG_DIR/\n"
-		echo "\tPLEASE, COPY THE FILE '$INGEST_SERVER_LIST' INTO YOUR HOME" 
-		echo "\tDIRECTORY AND RERUN livestream_with_jetson.sh !\n"
-		exit
-	fi
-done
 
 if [ -s $CONFIG_DIR/$INGEST_SERVER_URI ]; then
 	while [ true ]; do
@@ -278,16 +327,6 @@ elif [ $CONFIG_DIR/$VIDEO_CONFIG_FILE ]; then
 	echo "\t$CONFIG_DIR/$VIDEO_CONFIG_FILE\n"
 fi
 
-# Video capture sources
-echo "================================================================================\n"
-for V4L2SRC_DEVICE in /dev/video* ; do
-	v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
-	echo
-done
-echo "================================================================================\n"
-echo "Supported formats for video device $V4L2SRC_DEVICE:\n"
-v4l2-ctl -d $V4L2SRC_DEVICE --list-formats-ext
-
 # Audio capture sources
 echo "================================================================================\n"
 echo "List of audio devices:"
@@ -300,6 +339,19 @@ pacmd list-sinks | grep -e 'index:' -e device.string -e 'name:'
 echo "Pulseaudio input devices:"
 pacmd list-sources | grep -e 'index:' -e device.string -e 'name:'
 echo "\n================================================================================"
+
+# Set default video devices, e. g. Macro Silicon 2109 & Logitech C270
+V4L2SRC_DEVICE=`v4l2-ctl --list-devices | awk '/Video/ { getline; print $1}'`
+V4L2SRC_CAMERA=`v4l2-ctl --list-devices | awk '/Camera/ { getline; print $1}'`
+echo "Found Video: $V4L2SRC_DEVICE\n"
+echo "Found Camera: $V4L2SRC_CAMERA"
+
+if [ -z ${V4L2SRC_DEVICE+x} ]; then
+	V4L2SRC_DEVICE="/dev/video0"
+fi
+if [ -z ${V4L2SRC_CAMERA+x} ]; then
+	V4L2SRC_CAMERA="/dev/video1"
+fi
 
 # Create default video config and print results
 LAST_CONFIG=1
@@ -316,7 +368,7 @@ if ( grep -q "videodev.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	TMP_V4L2SRC_DEVICE=$(awk -v last=videodev.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 	eval "V4L2SRC_DEVICE=\${TMP_V4L2SRC_DEVICE}"
 else
-	echo "videodev.${LAST_CONFIG} ${V4L2SRC_DEVICE}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "videodev.${LAST_CONFIG} /dev/video0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 fi
 
 if ( grep -q "screenres.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
@@ -418,6 +470,47 @@ else
 	eval "FILE_PATH=/dev/null"
 fi
 
+if ( grep -q "background.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	BACKGROUND=$(awk -v last=background.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "background.${LAST_CONFIG} no" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	BACKGROUND="no"
+fi
+
+if ( grep -q "bgpath.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	BG_PATH=$(awk -v last=bgpath.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "bgpath.${LAST_CONFIG} $CONFIG_DIR" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	eval "BG_PATH=$CONFIG_DIR"
+fi
+
+if ( grep -q "bgfile.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	BG_FILE=$(awk -v last=bgfile.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "bgfile.${LAST_CONFIG} $BG_FILE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+fi
+
+if ( grep -q "cameradev.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	TMP_V4L2SRC_CAMERA=$(awk -v last=cameradev.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	eval "V4L2SRC_CAMERA=\${TMP_V4L2SRC_CAMERA}"
+else
+	echo "cameradev.${LAST_CONFIG} /dev/video1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+fi
+
+if ( grep -q "camerares.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	CAMERA_RESOLUTION=$(awk -v last=camerares.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "camerares.${LAST_CONFIG} 1280x720" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	CAMERA_RESOLUTION=1280x720
+fi
+
+if ( grep -q "camerapos.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "camerapos.${LAST_CONFIG} topleft" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	OVERLAY_CAMERA_POS=topleft
+fi
+
 # Ask to proceed or change the configuration
 while [ true ] ; do
 	# Set input settings
@@ -437,6 +530,11 @@ while [ true ] ; do
 	DISPLAY_AR_X=$((${DISPLAY_ASPECT_RATIO%:*}))
 	DISPLAY_AR_Y=$((${DISPLAY_ASPECT_RATIO#*:}))
 
+	# Set camera output
+	CAMERA_IN_WIDTH=$((${CAMERA_RESOLUTION%x*}))
+	CAMERA_IN_HEIGHT=$((${CAMERA_RESOLUTION#*x}))
+
+	# Set bitrates
 	AUDIO_TARGET_BITRATE=$(($AUDIO_BIT_RATE*1000))
 
 	VIDEO_PEAK_BITRATE=$( echo "scale=0; $VIDEO_PEAK_BITRATE_MBPS * 1000000 - $AUDIO_BIT_RATE * 1000" | bc -l )
@@ -481,6 +579,7 @@ while [ true ] ; do
 		CROP_X1=$SCREEN_WIDTH
 		CROP_Y1=$SCREEN_HEIGHT
 	fi
+
 	# Input/output settings
 	echo "\nCurrent settings:"
 	# Show input screen settings
@@ -520,9 +619,22 @@ while [ true ] ; do
 	echo "\t\tAudio AAC bitrate bits per second=$AUDIO_TARGET_BITRATE\n"
 	echo "\tRecording video:"
 	echo "\t\tRecord video=$RECORD_VIDEO"
-	echo "\t\tRecording directory=$FILE_PATH"
+	echo "\t\tRecording directory=$FILE_PATH\n"
+	echo "\tBackground image(animation):"
+	echo "\t\tBackground=$BACKGROUND"
+	echo "\t\tBG path=$BG_PATH"
+	echo "\t\tBG file (printf format)=$BG_FILE\n"
+	echo "\tCamera device:"
+	echo "\t\tCamera input device=$V4L2SRC_CAMERA"
+	echo "\t\tCamera input resolution=$CAMERA_RESOLUTION"
+	echo "\t\tCamera position=$OVERLAY_CAMERA_POS"
+	# Break for v4l2-ctl
+	for c in `seq 1 7`; do
+		sleep 1
+		echo "Please, wait $c seconds!"
+	done
 	# Ask
-	echo "================================================================================"
+	echo "\n================================================================================"
 	echo "Your current configuration is set to no. $LAST_CONFIG"
 	echo "================================================================================"
 	echo "PLEASE, SCROLL UP AND CHECK THE STREAM SETTINGS BEFORE YOU PROCEED!\n"
@@ -556,7 +668,6 @@ while [ true ] ; do
 		echo "\t$CONFIG_COUNT video configurations found."
 		echo "================================================================================"
 		# List presets
-#		for l in `seq 1 2` ; do
 		for k in `seq 1 $CONFIG_COUNT` ; do
 			if ( grep -q "videodev.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 				PRINT_VIDEODEV=$(awk -v last=videodev.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
@@ -606,10 +717,35 @@ while [ true ] ; do
 			if ( grep -q "filepath.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 				PRINT_FILE_PATH=$(awk -v last=filepath.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 			fi
+			if ( grep -q "background.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_BACKGROUND=$(awk -v last=background.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "bgpath.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_BG_PATH=$(awk -v last=bgpath.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "bgfile.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_BG_FILE=$(awk -v last=bgfile.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "cameradev.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_CAMERADEV=$(awk -v last=cameradev.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "camerares.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_CAMERA_RESOLUTION=$(awk -v last=camerares.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "camerapos.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+
 			if [ $CONFIG_FIGURE ]; then
-			echo "$k) $PRINT_VIDEODEV $PRINT_SCREEN_RESOLUTION@$PRINT_FRAMERATE ($PRINT_SCREEN_ASPECT_RATIO) -> $PRINT_DISPLAY_RESOLUTION@$PRINT_FRAMERATE ($PRINT_DISPLAY_ASPECT_RATIO) > $PRINT_VIDEO_PEAK_BITRATE mbps"
-			echo "\tcrop input size=$PRINT_FLAG_CROP, brightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION"
-			echo "\trecord=$PRINT_RECORD_VIDEO directory=$PRINT_FILE_PATH\n"
+				echo "$k) $PRINT_VIDEODEV $PRINT_SCREEN_RESOLUTION@$PRINT_FRAMERATE ($PRINT_SCREEN_ASPECT_RATIO) -> $PRINT_DISPLAY_RESOLUTION@$PRINT_FRAMERATE ($PRINT_DISPLAY_ASPECT_RATIO) > $PRINT_VIDEO_PEAK_BITRATE mbps"
+				echo "\tcrop input size=$PRINT_FLAG_CROP, brightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION"
+				echo "\trecord=$PRINT_RECORD_VIDEO directory=$PRINT_FILE_PATH"
+				echo "\tbackground image (animation)=$PRINT_BACKGROUND"
+				echo "\tbackground file path=$PRINT_BG_PATH"
+				echo "\tbackground file=$PRINT_BG_FILE"
+				echo "\tcamera=$PRINT_CAMERADEV"
+				echo "\tcamera res=$PRINT_CAMERA_RESOLUTION"
+				echo "\tcamera pos=$PRINT_OVERLAY_CAMERA_POS"
 			fi
 		done
 
@@ -625,8 +761,8 @@ while [ true ] ; do
 		echo "================================================================================"
 		echo "Your current configuration is set to no. $LAST_CONFIG"
 		echo "================================================================================"
-		echo "ENTER: You can 'delete' the current preset with by typing 'DELETE' (in upper"
-		echo " cases) and enter or enter the number of the preset you want to switch to or"
+		echo "ENTER: You can delete the current preset with by typing 'DELETE' (in upper"
+		echo " cases) or enter the number of the preset you want to switch to or"
 		echo " create a new one:"
 		read CHOOSE_FIGURE
 		if [ "$CHOOSE_FIGURE" != "DELETE" ]; then
@@ -682,6 +818,24 @@ while [ true ] ; do
 				if ( grep -q "filepath.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 					FILE_PATH=$(awk -v last=filepath.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 				fi
+				if ( grep -q "background.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					BACKGROUND=$(awk -v last=background.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "bgpath.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					BG_PATH=$(awk -v last=bgpath.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "bgfile.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					BG_FILE=$(awk -v last=bgfile.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "camersdev.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					V4L2SRC_CAMERA=$(awk -v last=cameradev.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "camerares.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					CAMERA_RESOLUTION=$(awk -v last=camerares.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "camerapos.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
 			fi
 		fi
 		if [ "$CHOOSE_FIGURE" = "$NEW_PRESET" ] ; then
@@ -693,13 +847,14 @@ while [ true ] ; do
 			# Set video device
 			while [ true ] ; do
 				echo "================================================================================"
+				echo "\tYOU CAN USE ANY HDMI CAPTURE DEVICE WITH MJPEG VIDEO OUT,"
+				echo "\tE. G. Macro Silicon 2109 HDMI Video Capture USB works very well!\n"
 				echo "List of capture devices:"
-				for V4L2SRC_DEVICE in /dev/video* ; do
-					echo "\t$V4L2SRC_DEVICE\n"
-					v4l2-ctl --device=$V4L2SRC_DEVICE --list-inputs
-					echo
-				done
-				echo "Do you want to use this video device for main video in or another device?"
+				v4l2-ctl --list-devices
+				echo "Found video input source:"
+				echo "\t\c"
+				v4l2-ctl --list-devices | awk '/Video/ { getline; print $1}'
+				echo "\nDo you want to use this video device for main video in or another device?"
 				echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
 				echo "================================================================================"
 				echo "\tCurrent MAIN VIDEO (INPUT) set to: $V4L2SRC_DEVICE"
@@ -724,77 +879,61 @@ while [ true ] ; do
 			while [ true ] ; do
 				echo "================================================================================"
 				echo "Input resolutions:\n"
-				echo " 1) 1920x1080@60 - Full HD, aspect 16:9, with 60 frames per second"
-				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!\n"
-				echo " 2) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second"
-				echo " 3) 1360x768@60 - HD Ready, aspect 16:9, with 60 frames per second"
-				echo " 4) 1360x768@30 - HD Ready, aspect 16:9, with 60 frames per second"
-				echo " 5) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
-				echo " 6) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
-				echo " 7) 720x576@60 - PAL50/60, aspect 4:3 to 16:9 wide, with 60 frames per second"
-				echo " 8) 720x576@30 - PAL50/60, aspect 4:3 to 16:9 wide, with 30 frames per second"
-				echo " 9) 720x480@60 - NTSC, aspect 4:3 to 16:9 wide, with 60 frames per second"
-				echo "10) 720x480@30 - NTSC, aspect 4:3 to 16:9 wide, with 30 frames per second"
-				echo "11) 640x480@60 - SDTV, aspect 4:3 to 16:9 wide, with 60 frames per second"
-				echo "12) 640x480@30 - SDTV, aspect 4:3 to 16:9 wide, with 30 frames per second"
+				echo " 1) 16:9 1920x1080 - Full HD, aspect 16:9 wide"
+				echo " 2)  16:9 1360x768 - HD Ready, aspect 16:9 wide"
+				echo " 3)  16:9 1280x720 - HD Ready, aspect 16:9 wide"
+				echo " 4)   16:9 720x576 - PAL50/60, aspect 16:9 wide"
+				echo " 5)    4:3 720x576 - PAL50/60, aspect 4:3"
+				echo " 6)   16:9 720x480 - NTSC, aspect 16:9 wide"
+				echo " 7)    4:3 720x480 - NTSC, aspect 4:3"
+				echo " 8)   16:9 640x480 - SDTV, aspect 16:9 wide"
+				echo " 9)    4:3 640x480 - SDTV, aspect 4:3"
 				echo "================================================================================"
 				echo "Choose an INPUT resolution from the table."
 				echo "ENTER: Type the number and press ENTER:"
 				read RESOLUTION_TABLE_IN
-				if [ $RESOLUTION_TABLE_IN -ge 1 ] && [ $RESOLUTION_TABLE_IN -le 12 ]; then
+				if [ $RESOLUTION_TABLE_IN -ge 1 ] && [ $RESOLUTION_TABLE_IN -le 9 ]; then
 					case $RESOLUTION_TABLE_IN in
 						1) TMP_SCREEN_RESOLUTION_=1920x1080
-						TMP_INPUT_FRAMERATE_=60
-						TMP_SCREEN_ASPECT_RATIO_=16:9
-						;;
-						2) TMP_SCREEN_RESOLUTION_=1920x1080
 						TMP_INPUT_FRAMERATE_=30
 						TMP_SCREEN_ASPECT_RATIO_=16:9
 						;;
-						3) TMP_SCREEN_RESOLUTION_=1360x768
-						TMP_INPUT_FRAMERATE_=60
-						TMP_SCREEN_ASPECT_RATIO_=16:9
-						;;
-						4) TMP_SCREEN_RESOLUTION_=1360x768
+						2) TMP_SCREEN_RESOLUTION_=1360x768
 						TMP_INPUT_FRAMERATE_=30
 						TMP_SCREEN_ASPECT_RATIO_=16:9
 						;;
-						5) TMP_SCREEN_RESOLUTION_=1280x720
-						TMP_INPUT_FRAMERATE_=60
-						TMP_SCREEN_ASPECT_RATIO_=16:9
-						;;
-						6) TMP_SCREEN_RESOLUTION_=1280x720
+						3) TMP_SCREEN_RESOLUTION_=1280x720
 						TMP_INPUT_FRAMERATE_=30
 						TMP_SCREEN_ASPECT_RATIO_=16:9
 						;;
-						7) TMP_SCREEN_RESOLUTION_=720x576
-						TMP_INPUT_FRAMERATE_=60
-						TMP_SCREEN_ASPECT_RATIO_=4:3
+						4) TMP_SCREEN_RESOLUTION_=720x576
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=16:9
 						;;
-						8) TMP_SCREEN_RESOLUTION_=720x576
+						5) TMP_SCREEN_RESOLUTION_=720x576
 						TMP_INPUT_FRAMERATE_=30
 						TMP_SCREEN_ASPECT_RATIO_=4:3
 						;;
-						9) TMP_SCREEN_RESOLUTION_=720x480
-						TMP_INPUT_FRAMERATE_=60
-						TMP_SCREEN_ASPECT_RATIO_=4:3
+						6) TMP_SCREEN_RESOLUTION_=720x480
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=16:9
 						;;
-						10) TMP_SCREEN_RESOLUTION_=720x480
+						7) TMP_SCREEN_RESOLUTION_=720x480
 						TMP_INPUT_FRAMERATE_=30
 						TMP_SCREEN_ASPECT_RATIO_=4:3
 						;;
-						11) TMP_SCREEN_RESOLUTION_=640x480
-						TMP_INPUT_FRAMERATE_=60
-						TMP_SCREEN_ASPECT_RATIO_=4:3
+						8) TMP_SCREEN_RESOLUTION_=640x480
+						TMP_INPUT_FRAMERATE_=30
+						TMP_SCREEN_ASPECT_RATIO_=16:9
 						;;
-						12) TMP_SCREEN_RESOLUTION_=640x480
+						9) TMP_SCREEN_RESOLUTION_=640x480
 						TMP_INPUT_FRAMERATE_=30
 						TMP_SCREEN_ASPECT_RATIO_=4:3
 						;;
 					esac
 					echo "================================================================================"
 					echo "Screen resolution (input) set to: $TMP_SCREEN_RESOLUTION_@$TMP_INPUT_FRAMERATE_"
-					echo "================================================================================"
+					echo "================================================================================\n"
 
 					eval "SCREEN_RESOLUTION=\${TMP_SCREEN_RESOLUTION_}"
 					sed -i "/screenres.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
@@ -810,10 +949,12 @@ while [ true ] ; do
 			# Ask for cropping
 			while [ true ] ; do
 				echo "================================================================================"
+				echo "\tYOU HAVE TO CROP OLD ANALOG PAL/NTSC, COMPONENT VIDEO SIGNALS"
+				echo "\t\t FROM OG. XBOX, PLAYSTATION 1/2 OR NINTENDO!\n"
 				echo "Do you want to crop the border of the picture of the video input?"
 				echo "The picture will be cropped about 3.5% of its border, e. g. for PAL/NTSC"
 				echo "analog signals from an analog to hdmi converter."
-				echo "Write 'yes'to cop image and 'no' for source, as it is, e. g. HD input signal."
+				echo "Write 'yes'to crop image and 'no' for source, as it is, e. g. HD input signal."
 				echo "================================================================================"
 				echo "Crop input frames?"
 				echo "ENTER: Type 'YES' (in upper cases) or 'no' and ENTER:"
@@ -837,30 +978,14 @@ while [ true ] ; do
 			# Set output resolution
 			while [ true ] ; do
 				echo "================================================================================"
-				echo "\tNOT RECOMMENDED, only for de disrepects and happy hobs in the life!\n"
-				echo "Output resolutions:\n"
-				echo " 4) 1920x1080@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
-				echo "\t^this works only with USB 3.x frame grabbers or HDMI to CSI-2!"
-				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!\n"
-				echo " 5) 1920x1080@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
-				echo " 6) 1360x768@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
-				echo " 7) 1360x768@30 - Full HD, aspect 16:9, with 30 fps, bitrate 6 Mbps!"
-				echo " 8) 1280x720@60 - Full HD, aspect 16:9, with 60 fps, bitrate 6 Mbps!"
-				echo "\t(6 megabits per second is the maximum ingest bitrate for Twitch.tv)"
-				echo "\tNOT RECOMMENDED!"
-				echo "================================================================================"
-				echo "\tRECOMMENDED!\n"
 				echo "Output resolutions (sets out-/input framerate!):\n"
 				echo " 1) 1920x1080@30 - Full HD, aspect 16:9, with 30 frames per second\n"
-				echo " 2) 1280x720@60 - HD Ready, aspect 16:9, with 60 frames per second"
-				echo "\t^this works only with USB 3.x frame grabbers or HDMI to CSI-2!"
-				echo "\t^USB 2.0 frame grabbers can't transfer 60 fps over USB!!!\n"
-				echo " 3) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
+				echo " 2) 1280x720@30 - HD Ready, aspect 16:9, with 30 frames per second"
 				echo "================================================================================"
 				echo "Choose an OUTPUT resolution from the table."
 				echo "ENTER: Type the number and press ENTER:"
 				read RESOLUTION_TABLE_OUT
-				if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 8 ]; then
+				if [ $RESOLUTION_TABLE_OUT -ge 1 ] && [ $RESOLUTION_TABLE_OUT -le 2 ]; then
 					case $RESOLUTION_TABLE_OUT in
 						1) TMP_DISPLAY_RESOLUTION_=1920x1080
 						TMP_DISPLAY_ASPECT_RATIO_=16:9
@@ -869,39 +994,8 @@ while [ true ] ; do
 						;;
 						2) TMP_DISPLAY_RESOLUTION_=1280x720
 						TMP_DISPLAY_ASPECT_RATIO_=16:9
-						TMP_OUTPUT_FRAMERATE_=60
-						TMP_VIDEO_PEAK_BITRATE_MBPS_=4.5
-						;;
-						3) TMP_DISPLAY_RESOLUTION_=1280x720
-						TMP_DISPLAY_ASPECT_RATIO_=16:9
 						TMP_OUTPUT_FRAMERATE_=30
 						TMP_VIDEO_PEAK_BITRATE_MBPS_=3.5
-						;;
-						# Unsupported!
-						4) TMP_DISPLAY_RESOLUTION_=1920x1080
-						TMP_DISPLAY_ASPECT_RATIO_=16:9
-						TMP_OUTPUT_FRAMERATE_=60
-						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
-						;;
-						5) TMP_DISPLAY_RESOLUTION_=1920x1080
-						TMP_DISPLAY_ASPECT_RATIO_=16:9
-						TMP_OUTPUT_FRAMERATE_=30
-						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
-						;;
-						6) TMP_DISPLAY_RESOLUTION_=1360x768
-						TMP_DISPLAY_ASPECT_RATIO_=16:9
-						TMP_OUTPUT_FRAMERATE_=60
-						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
-						;;
-						7) TMP_DISPLAY_RESOLUTION_=1360x768
-						TMP_DISPLAY_ASPECT_RATIO_=16:9
-						TMP_OUTPUT_FRAMERATE_=30
-						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
-						;;
-						8) TMP_DISPLAY_RESOLUTION_=1280x720
-						TMP_DISPLAY_ASPECT_RATIO_=16:9
-						TMP_OUTPUT_FRAMERATE_=60
-						TMP_VIDEO_PEAK_BITRATE_MBPS_=6
 						;;
 					esac
 
@@ -979,7 +1073,7 @@ while [ true ] ; do
 				echo " PLUGINS! MAYBE IN A FUTURE RELEASE."
 				echo "YOU CAN USE AN EXTERNAL VIDEO EQUALIZER, IF YOU HAVE ONE OR YOUR SIGNAL TO HDMI"
 				echo " CONVERTER, e. g. OSSC HARDWARE, HAS ONE."
-				echo "All values set to zero by default!"
+				echo "All values set to zero by default!\n"
 
 				# Stops execution of this part of the program
 				break
@@ -1099,6 +1193,180 @@ while [ true ] ; do
 				sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				echo "hue.${LAST_CONFIG} $HUE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				# End of adjust picture
+				# Start of compositing dialog
+				while [ true ]; do
+					echo "================================================================================"
+					echo "You can choose between fullscreen for main video or background picture"
+					echo " or animation!"
+					echo "The background image or animation must be an JPEG (.jpg) image or a sequence of"
+					echo " numbered JPEG images! The filname must have the format '<JPEG name>.%04d.jpg'"
+					echo " or '<JPEG name>-%03d.jpg'! '%04d' will be replaced with an image sequence of"
+					echo " '0000', '0001',... If you use a sequence of images the frame rate will be the"
+					echo "output framerate of the stream."
+					echo "If you don't choose an background the black standard background in the config"
+					echo " directory will be used for 4:3 aspect ratio video in a 16:9 HD stream."
+					echo "================================================================================"
+					echo "ENTER: Do you want to have a border and an background image, enter 'yes' or 'no'"
+					read ASK_FOR_BACKGROUND
+					case $ASK_FOR_BACKGROUND in
+						yes)	TMP_ASK_FOR_BACKGROUND_="yes"
+							eval "BACKGROUND=\${TMP_ASK_FOR_BACKGROUND_}"
+							sed -i "/background.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "background.${LAST_CONFIG} $TMP_ASK_FOR_BACKGROUND_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+							while [ true ]; do
+								echo "================================================================================"
+								echo "IMPORTANT: Use the full path /home/<user name> and not tilde '~' for your home"
+								echo " directory! For example in any case '/home/alice/Pictures/Backgrounds'."
+								echo "================================================================================"
+								echo "Set a directory with the background image or the sequence of images:"
+								read TMP_ASK_FOR_BGPATH_
+								if [ -d "$TMP_ASK_FOR_BGPATH_" ]; then
+									echo "Path set to:\n$TMP_ASK_FOR_BGPATH_"
+									break
+								fi
+							done
+							echo "================================================================================"
+							echo "Set a background image file or sequence of JPEG images in the format explained"
+							echo " before, e. g. '<JPEG name>.%04d.jpg' and the single or first file name in the"
+							echo " directory must be then, e. g. <JPEG name>.0000.jpg:"
+							echo "IMPORTANT: The image size must be 1920x1080 pixel!"
+							echo "================================================================================"
+							read TMP_ASK_FOR_BG_FILE_
+							echo "Background image(s) set to:\n$TMP_ASK_FOR_BG_FILE_"
+
+							eval "BG_PATH=\${TMP_ASK_FOR_BGPATH_}"
+							sed -i "/bgpath.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "bgpath.${LAST_CONFIG} $TMP_ASK_FOR_BGPATH_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+							eval "BG_FILE=\${TMP_ASK_FOR_BG_FILE_}"
+							sed -i "/bgfile.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "bgfile.${LAST_CONFIG} $TMP_ASK_FOR_BG_FILE_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+							break
+						;;
+						no)	TMP_ASK_FOR_BACKGROUND_="no"
+							eval "BACKGROUND=\${TMP_ASK_FOR_BACKGROUND_}"
+							sed -i "/background.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "background.${LAST_CONFIG} $TMP_ASK_FOR_BACKGROUND_" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+							sed -i "/bgpath.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "bgpath.${LAST_CONFIG} $CONFIG_DIR" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+							sed -i "/bgfile.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+							echo "bgfile.${LAST_CONFIG} bg_black.%04d.jpg" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+							break
+						;;
+					esac
+				done
+				# End of compositing dialog
+				# Ask for camera
+				while [ true ] ; do
+					echo "================================================================================"
+					echo "\t\tSETUP YOUR PICTURE IN PICTURE WEBCAM"
+					echo "You need a USB webcam with MJPEG output capability, 720p 30 frames per second!"
+					echo "E. g. Logitech C270, other brands may work, too. The image will be scaled.\n"
+					echo "List of video devices:"
+					v4l2-ctl --list-devices
+					echo "Found camera:"
+					v4l2-ctl --list-devices | awk '/Camera/ { getline; print $1}'
+					echo "Do you want to use this video device a camera input or another device?"
+					echo "To set another device enter the path, e. g. '/dev/video1' and enter.\n"
+					echo "================================================================================"
+					echo "\tCurrent CAMERA VIDEO (INPUT) set to: $V4L2SRC_CAMERA"
+					echo "================================================================================"
+					echo "ENTER: 'yes' or the path to another camera device:"
+					read OTHER_V4L2SRC_CAMERA
+					if [ "${OTHER_V4L2SRC_CAMERA}" = "yes" ]; then
+						sed -i "/cameradev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "cameradev.${LAST_CONFIG} $V4L2SRC_CAMERA" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "Set Video for Linux 2 camera device to: $V4L2SRC_CAMERA\n"
+						break
+					elif [ -e "${OTHER_V4L2SRC_CAMERA}" ]; then
+						eval "V4L2SRC_CAMERA=\${OTHER_V4L2SRC_CAMERA}"
+						sed -i "/cameradev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "cameradev.${LAST_CONFIG} $V4L2SRC_CAMERA" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "Set Video for Linux 2 camera device to: $V4L2SRC_DEVICE\n"
+						break
+					fi
+				done
+				# Set input resolution
+				while [ true ] ; do
+					echo "================================================================================"
+					echo "Please, choose a low resolution for picture in picture with game streaming!"
+					echo " 640x360 should be ok.\n"
+					echo "Camera input resolutions:\n"
+					echo " 1) 1280x720 USB Webcam, MJPEG"
+					echo " 2) 1024x576 USB Webcam, MJPEG"
+					echo " 3)  800x448 USB Webcam, MJPEG"
+					echo " 4)  640x360 USB Webcam, MJPEG"
+					echo "================================================================================"
+					echo "Choose an INPUT resolution from the table."
+					echo "ENTER: Type the number and press ENTER:"
+					read RESOLUTION_CAMERA_IN
+					if [ $RESOLUTION_CAMERA_IN -ge 1 ] && [ $RESOLUTION_CAMERA_IN -le 4 ]; then
+						case $RESOLUTION_CAMERA_IN in
+							1) TMP_CAMERA_RESOLUTION_=1280x720
+							;;
+							2) TMP_CAMERA_RESOLUTION_=1024x576
+							;;
+							3) TMP_CAMERA_RESOLUTION_=800x448
+							;;
+							4) TMP_CAMERA_RESOLUTION_=640x360
+							;;
+						esac
+						echo "================================================================================"
+						echo "Camera resolution (input only) set to: $TMP_CAMERA_RESOLUTION_"
+						echo "================================================================================"
+
+						eval "CAMERA_RESOLUTION=\${TMP_CAMERA_RESOLUTION_}"
+						sed -i "/camerares.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "camerares.${LAST_CONFIG} $CAMERA_RESOLUTION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+						CAMERA_IN_WIDTH=${CAMERA_RESOLUTION%x*}
+						CAMERA_IN_HEIGHT=${CAMERA_RESOLUTION#*x}
+
+						break
+					fi
+				done
+				# End of setting input resolution
+				# Place camera PiP
+				while [ true ] ; do
+					echo "================================================================================"
+					echo "Camera PiP position:\n"
+					echo " 1) Top, left - Camera overlay"
+					echo " 2) Bottom, left - Camera overlay"
+					echo " 3) Top, right - Camera overlay"
+					echo " 4) Bottom, right - Camera overlay"
+					echo "================================================================================"
+					echo "Choose a camera pip position from the table."
+					echo "ENTER: Type the number and press ENTER:"
+					read ASK_OVERLAY_CAMERA_POS
+					if [ $ASK_OVERLAY_CAMERA_POS -ge 1 ] && [ $ASK_OVERLAY_CAMERA_POS -le 4 ]; then
+						case $ASK_OVERLAY_CAMERA_POS in
+							1) TMP_OVERLAY_CAMERA_POS_=topleft
+							;;
+							2) TMP_OVERLAY_CAMERA_POS_=bottomleft
+							;;
+							3) TMP_OVERLAY_CAMERA_POS_=topright
+							;;
+							4) TMP_OVERLAY_CAMERA_POS_=bottomright
+							;;
+						esac
+						echo "================================================================================"
+						echo "Camera overlay positioned at: $TMP_OVERLAY_CAMERA_POS_"
+						echo "================================================================================"
+
+						eval "OVERLAY_CAMERA_POS=\${TMP_OVERLAY_CAMERA_POS_}"
+						sed -i "/camerapos.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+						echo "camerapos.${LAST_CONFIG} $OVERLAY_CAMERA_POS" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+						break
+					fi
+				done
+				# End of setting camera PiP placement
+				# Camera end
 				# Ask for recording to file
 				while [ true ]; do
 					echo "================================================================================"
@@ -1174,6 +1442,13 @@ while [ true ] ; do
 				sed -i "/bitrate.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				sed -i "/record.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				sed -i "/filepath.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/background.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/bgpath.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/bgfile.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/cameradev.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/camerares.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/camerapos.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
 				if [ $CONFIG_COUNT -ne $LAST_CONFIG ]; then
 					echo "deleted.${LAST_CONFIG}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				fi
@@ -1229,6 +1504,95 @@ while [ true ] ; do
 	if ( grep -q "filepath.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 		FILE_PATH=$(awk -v last=filepath.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 	fi
+	if ( grep -q "background.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		BACKGROUND=$(awk -v last=background.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "bgpath.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		BG_PATH=$(awk -v last=bgpath.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "bgfile.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		BG_FILE=$(awk -v last=bgfile.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "cameradev.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		V4L2SRC_CAMERA=$(awk -v last=cameradev.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "camerares.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		CAMERA_RESOLUTION=$(awk -v last=camerares.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "camerapos.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+done
+
+# Check your webcam
+gst-launch-1.0 v4l2src \
+	device=$V4L2SRC_CAMERA \
+	io-mode=2 \
+! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=${FRAMES_PER_SEC}" \
+! nvjpegdec \
+! "video/x-raw" \
+! nvvidconv \
+! "video/x-raw(memory:NVMM),format=NV12" \
+! nvoverlaysink \
+	overlay-x=$OVL2_POSITION_X \
+	overlay-y=$OVL2_POSITION_Y \
+	overlay-w=$OVL2_SIZE_X \
+	overlay-h=$OVL2_SIZE_Y \
+	overlay=2 \
+	overlay-depth=1 \
+	sync=false \
+	async=false \
+&
+# Get the PID of the gestreamer pipeline
+PID_CAMERA_OVERLAY=$!
+
+while [ true ]; do
+	echo "================================================================================\n"
+	echo "\tCheck a last time your webcam positioning with the overlay!\n"
+	echo "================================================================================"
+	echo "Type 'ok' after you've checked the webcam positioning or 'quit' to exit!"
+	echo "================================================================================"
+	echo "ENTER: 'ok' or 'quit'and ENTER:"
+	read ASK_WEBCAM_CHECK
+	if [ "$ASK_WEBCAM_CHECK" = "ok" ]; then
+		# Close overlay
+		kill -s 15 $PID_CAMERA_OVERLAY
+		break
+	elif [ "$ASK_WEBCAM_CHECK" = "quit" ]; then
+		# Close overlay
+		kill -s 15 $PID_CAMERA_OVERLAY
+		exit
+	fi
+done
+
+# Close overlay
+kill -s 15 $PID_CAMERA_OVERLAY
+
+for d in `seq 1 7`; do
+	sleep 1
+	echo "Please, wait $d seconds!"
+done
+
+# Wake up drive from sleep state (in case of magnetic HDD)
+ls -alh $FILE_PATH
+
+# Flush the toilet
+gst-launch-1.0 v4l2src device=$V4L2SRC_DEVICE io-mode=2 \
+! videoconvert \
+! xvimagesink &
+
+PID_GSTREAMER_V4L2SRC_PREVIEW=$!
+
+for b in `seq 1 10`; do
+	sleep 1
+	echo "Please, wait ten seconds, $b, resetting the the NV hardware de-/encoders!"
+done
+kill -s 15 $PID_GSTREAMER_V4L2SRC_PREVIEW
+# Flushed, NVENC, NVDEC and NVJPEG cores resetted
+
+for a in `seq 1 7`; do
+	sleep 1
+	echo "Please, wait $a seconds!"
 done
 
 while [ true ]; do
@@ -1259,69 +1623,177 @@ else
 fi
 echo "Recording to: $FILE_PATH"
 
+if [ "$DISPLAY_RESOLUTION" = "1920x1080" ]; then
+	CAM_WIDTH=480
+	CAM_HEIGHT=270
+else
+	CAM_WIDTH=320
+	CAM_HEIGHT=180
+fi
+
+if [ "$OVERLAY_CAMERA_POS" = "topleft" ]; then
+	CAM_POS_X=0
+	CAM_POS_Y=0
+elif [ "$OVERLAY_CAMERA_POS" = "bottomleft" ]; then
+	CAM_POS_X=0
+	CAM_POS_Y=$( echo "scale=0; $DISPLAY_HEIGHT - $CAM_HEIGHT" | bc -l )
+elif [ "$OVERLAY_CAMERA_POS" = "topright" ]; then
+	CAM_POS_X=$( echo "scale=0; $DISPLAY_WIDTH - $CAM_WIDTH" | bc -l )
+	CAM_POS_Y=0
+elif [ "$OVERLAY_CAMERA_POS" = "bottomright" ]; then
+	CAM_POS_X=$( echo "scale=0; $DISPLAY_WIDTH - $CAM_WIDTH" | bc -l )
+	CAM_POS_Y=$( echo "scale=0; $DISPLAY_HEIGHT - $CAM_HEIGHT" | bc -l )
+fi
+
+if [ "$BACKGROUND" = "no" ] && [ "$SCREEN_ASPECT_RATIO" = "16:9" ] && [ "$DISPLAY_RESOLUTION" = "1920x1080" ]; then
+	VIEW_POS_X=0
+	VIEW_POS_Y=0
+	VIEW_WIDTH=$DISPLAY_WIDTH
+	VIEW_HEIGHT=$DISPLAY_HEIGHT
+elif [ "$BACKGROUND" = "no" ] && [ "$SCREEN_ASPECT_RATIO" = "16:9" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" ]; then
+	VIEW_POS_X=0
+	VIEW_POS_Y=0
+	VIEW_WIDTH=$DISPLAY_WIDTH
+	VIEW_HEIGHT=$DISPLAY_HEIGHT
+elif [ "$BACKGROUND" = "yes" ] && [ "$SCREEN_ASPECT_RATIO" = "16:9" ] && [ "$DISPLAY_RESOLUTION" = "1920x1080" ]; then
+	VIEW_POS_X=160
+	VIEW_POS_Y=90
+	VIEW_WIDTH=1600
+	VIEW_HEIGHT=900
+elif [ "$BACKGROUND" = "yes" ] && [ "$SCREEN_ASPECT_RATIO" = "16:9" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" ]; then
+	VIEW_POS_X=160
+	VIEW_POS_Y=90
+	VIEW_WIDTH=960
+	VIEW_HEIGHT=540
+elif [ "$SCREEN_ASPECT_RATIO" = "4:3" ] && [ "$DISPLAY_RESOLUTION" = "1920x1080" ]; then
+	VIEW_POS_X=320
+	VIEW_POS_Y=90
+	VIEW_WIDTH=1280
+	VIEW_HEIGHT=900
+elif [ "$SCREEN_ASPECT_RATIO" = "4:3" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" ]; then
+	VIEW_POS_X=160
+	VIEW_POS_Y=90
+	VIEW_WIDTH=800
+	VIEW_HEIGHT=540
+fi
+
+# Set fix pixel aspect ratio of PIXEL_ASPECT_RATIO_GSTREAMER="1/1"
+eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
+
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
-
-gst-launch-1.0 $1 $MUXER streamable=true name=mux \
+#
+# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
+#
+# and for streaming back to
+#
+# ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
+#
+# GStreamer v4l2src with mjpeg must have the mmap option enabled!
+gst-launch-1.0 nvcompositor name=comp \
+sink_0::xpos=0 sink_0::ypos=0 sink_0::width=$DISPLAY_WIDTH sink_0::height=$DISPLAY_HEIGHT \
+sink_1::xpos=$VIEW_POS_X sink_1::ypos=$VIEW_POS_Y sink_1::width=$VIEW_WIDTH sink_1::height=$VIEW_HEIGHT \
+sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2::=$CAM_HEIGHT \
+! "video/x-raw(memory:NVMM),framerate=${FRAMES_PER_SEC}" \
+! nvvidconv interpolation-method=$SCALER_TYPE \
+! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT}" \
+! omxh264enc iframeinterval=$I_FRAME_INTERVAL \
+	bitrate=$VIDEO_TARGET_BITRATE \
+	peak-bitrate=$VIDEO_PEAK_BITRATE \
+	control-rate=$CONTROL_RATE \
+	preset-level=$VIDEO_QUALITY \
+	profile=$H264_PROFILE \
+	cabac-entropy-coding=$CABAC \
+! "video/x-h264,stream-format=byte-stream,framerate=${FRAMES_PER_SEC}" \
+! h264parse config-interval=-1 \
+! flvmux \
+	start-time-selection=1 \
+	latency=7000000000 \
+	streamable=true \
+	metadatacreator="NVIDIA Jetson Nano/GStreamer 1.14.5 FLV muxer" \
+	name=mux \
 ! tee name=container0 \
 ! queue \
 ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
+\
+multifilesrc location="${BG_PATH}/${BG_FILE}" \
+	index=0 caps="image/jpeg" \
+	loop=true \
+! "image/jpeg,width=1920,height=1080" \
+! jpegparse \
+! nvjpegdec \
+! "video/x-raw" \
+! nvvidconv \
+! "video/x-raw(memory:NVMM),format=NV12" \
+! nvvidconv interpolation-method=$SCALER_TYPE \
+! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT}" \
+! queue \
+! comp. \
 \
 v4l2src \
 	brightness=$BRIGHTNESS \
 	contrast=$CONTRAST \
 	device=$V4L2SRC_DEVICE \
 	hue=$HUE \
-	io-mode=2 \
 	pixel-aspect-ratio=$PIXEL_ASPECT_RATIO_GSTREAMER \
 	saturation=$SATURATION \
+	io-mode=2 \
 ! "image/jpeg,width=${SCREEN_WIDTH},height=${SCREEN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
+! nvjpegdec \
+! "video/x-raw" \
+! nvvidconv \
+! "video/x-raw(memory:NVMM),format=NV12" \
+! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
+! nvvidconv interpolation-method=$SCALER_TYPE \
+! "video/x-raw(memory:NVMM),width=${VIEW_WIDTH},height=${VIEW_HEIGHT}" \
+! tee name=videosrc0 \
+! queue \
+! comp. \
+\
+v4l2src \
+	device=$V4L2SRC_CAMERA \
+	io-mode=2 \
+! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=${FRAMES_PER_SEC}" \
 ! jpegparse \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
-! "video/x-raw(memory:NVMM)" \
-! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
+! "video/x-raw(memory:NVMM),format=NV12" \
 ! nvvidconv interpolation-method=$SCALER_TYPE \
-! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT},format=NV12" \
-! tee name=videosrc0 \
+! "video/x-raw(memory:NVMM),width=$CAM_WIDTH,height=$CAM_HEIGHT" \
+! tee name=videocam0 \
 ! queue \
-! omxh264enc iframeinterval=$I_FRAME_INTERVAL \
-	bitrate=$VIDEO_TARGET_BITRATE \
-	peak-bitrate=$VIDEO_PEAK_BITRATE \
-	control-rate=$CONTROL_RATE \
-	preset-level=$VIDEO_QUALITY \
-! "video/x-h264,stream-format=byte-stream" \
-! h264parse \
-! mux. \
+! comp. \
 \
 alsasrc \
-! tee name=audiosrc0 \
-! queue \
 ! "audio/x-raw,format=S16LE,layout=interleaved, rate=${AUDIO_SAMPLING_RATE}, channels=${AUDIO_NUM_CH}" \
 ! voaacenc bitrate=$AUDIO_BIT_RATE \
 ! aacparse \
+! queue \
 ! mux. \
 \
 videosrc0. \
-! queue \
 ! nvoverlaysink \
-	overlay-x=$OVL_POSITION_X \
-	overlay-y=$OVL_POSITION_Y \
-	overlay-w=$OVL_SIZE_X \
-	overlay-h=$OVL_SIZE_Y \
+	overlay-x=$OVL1_POSITION_X \
+	overlay-y=$OVL1_POSITION_Y \
+	overlay-w=$OVL1_SIZE_X \
+	overlay-h=$OVL1_SIZE_Y \
 	overlay=1 \
 	overlay-depth=1 \
 	sync=false \
 	async=false \
 \
-audiosrc0. \
-! queue \
-! audioconvert \
-! audioresample \
-! pulsesink mute=true \
+videocam0. \
+! nvoverlaysink \
+	overlay-x=$OVL2_POSITION_X \
+	overlay-y=$OVL2_POSITION_Y \
+	overlay-w=$OVL2_SIZE_X \
+	overlay-h=$OVL2_SIZE_Y \
+	overlay=2 \
+	overlay-depth=1 \
 	sync=false \
 	async=false \
+\
 container0. \
 ! queue \
 ! filesink location=$FILE_PATH > $CONFIG_DIR/gstreamer-debug-out.log \
@@ -1330,7 +1802,6 @@ container0. \
 # Get the PID of the gestreamer pipeline
 PID_GSTREAMER_PIPELINE=$!
 
-sleep 2
 echo "\nWriting GStreamer debug log into:"
 echo "\t$CONFIG_DIR/gstreamer-debug-out.log"
 
@@ -1338,6 +1809,8 @@ echo "\t$CONFIG_DIR/gstreamer-debug-out.log"
 if [ `pidof gst-launch-1.0` = $PID_GSTREAMER_PIPELINE ]; then
 	echo "\n\tYOU'RE STREAM IS NOW ONLINE & LIVE!\n"
 fi
+
+sleep 5
 
 # Read key press for stopping gestreamer pipeline
 while [ true ] ; do
