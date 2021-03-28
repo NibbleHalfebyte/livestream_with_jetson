@@ -1,6 +1,4 @@
 Video Game Capture with a NVIDIA Jetson Nano: Internet live streaming and compressed recording
-Marc edited this page now · 14 revisions
-Video Game Capture with a NVIDIA Jetson Nano: Internet live streaming and compressed recording
 NVIDIA Jetson Nano Developer Kit
 
 This script is to live stream captured video games to Twitch TV. You need an payed Twitch account or Amazon Prime to stream. You can parallel record the stream to a storage device.
