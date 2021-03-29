@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-28
-# Version: 0.16
+# Date: 2021-03-29
+# Version: 0.16g BETA
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -403,14 +403,14 @@ fi
 if ( grep -q "brightness.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	BRIGHTNESS=$(awk -v last=brightness.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "brightness.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "brightness.${LAST_CONFIG} -11" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	BRIGHTNESS=0
 fi
 
 if ( grep -q "contrast.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	CONTRAST=$(awk -v last=contrast.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "contrast.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "contrast.${LAST_CONFIG} 148" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	CONTRAST=0
 fi
 
@@ -424,7 +424,7 @@ fi
 if ( grep -q "saturation.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	SATURATION=$(awk -v last=saturation.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "saturation.${LAST_CONFIG} 0" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "saturation.${LAST_CONFIG} 180" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	SATURATION=0
 fi
 
@@ -500,8 +500,8 @@ fi
 if ( grep -q "camerares.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	CAMERA_RESOLUTION=$(awk -v last=camerares.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "camerares.${LAST_CONFIG} 1280x720" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-	CAMERA_RESOLUTION=1280x720
+	echo "camerares.${LAST_CONFIG} 640x360" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	CAMERA_RESOLUTION=640x360
 fi
 
 if ( grep -q "camerapos.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
@@ -509,6 +509,55 @@ if ( grep -q "camerapos.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 else
 	echo "camerapos.${LAST_CONFIG} topleft" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	OVERLAY_CAMERA_POS=topleft
+fi
+
+if ( grep -q "brightnesscam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	BRIGHTNESS_CAM=$(awk -v last=brightnesscam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "brightnesscam.${LAST_CONFIG} 128" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	BRIGHTNESS_CAM=128
+fi
+
+if ( grep -q "contrastcam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	CONTRAST_CAM=$(awk -v last=contrastcam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "contrastcam.${LAST_CONFIG} 32" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	CONTRAST_CAM=32
+fi
+
+if ( grep -q "gaincam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	GAIN_CAM=$(awk -v last=gaincam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "gaincam.${LAST_CONFIG} 64" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	GAIN_CAM=64
+fi
+
+if ( grep -q "saturationcam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	SATURATION_CAM=$(awk -v last=saturationcam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "saturationcam.${LAST_CONFIG} 32" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	SATURATION_CAM=32
+fi
+
+if ( grep -q "whiteautocam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	WBTA_CAM=$(awk -v last=whiteautocam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "whiteautocam.${LAST_CONFIG} 1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	WBTA_CAM=1
+fi
+
+if ( grep -q "whitecam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	WBT_CAM=$(awk -v last=whitecam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "whitecam.${LAST_CONFIG} 4000" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	WBT_CAM=4000
+fi
+
+if ( grep -q "powerlinecam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+	PLF_CAM=$(awk -v last=powerlinecam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+else
+	echo "powerlinecam.${LAST_CONFIG} 1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	PLF_CAM=1
 fi
 
 # Ask to proceed or change the configuration
@@ -594,8 +643,8 @@ while [ true ] ; do
 	echo "\tPicture settings:"
 	echo "\t\tBrightness=$BRIGHTNESS"
 	echo "\t\tContrast=$CONTRAST"
-	echo "\t\tHue=$HUE"
 	echo "\t\tSaturation=$SATURATION\n"
+	echo "\t\tHue=$HUE"
 	# Show cropping values
 	echo "\tScreen cropped to:"
 	echo "\t\tCropped 3.5% of the safe area down of screen the screen size."
@@ -628,8 +677,15 @@ while [ true ] ; do
 	echo "\t\tCamera input device=$V4L2SRC_CAMERA"
 	echo "\t\tCamera input resolution=$CAMERA_RESOLUTION"
 	echo "\t\tCamera position=$OVERLAY_CAMERA_POS"
+	echo "\tCamera settings:"
+	echo "\t\tBrightness=$BRIGHTNESS_CAM"
+	echo "\t\tContrast=$CONTRAST_CAM"
+	echo "\t\tSaturation=$SATURATION_CAM"
+	echo "\t\tWhite balance auto (on/off)=$WBTA_CAM"
+	echo "\t\tWhite balance temp. Kelvin=$WBT_CAM"
+	echo "\t\tPower line freq. (50/60Hz)=$PLF_CAM\n"
 	# Break for v4l2-ctl
-	for c in `seq 1 5`; do
+	for c in `seq 1 7`; do
 		sleep 1
 		echo "Please, wait $c seconds!"
 	done
@@ -736,9 +792,32 @@ while [ true ] ; do
 				PRINT_OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 			fi
 
+			if ( grep -q "brightnesscam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_BRIGHTNESS_CAM=$(awk -v last=brightnesscam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "contrastcam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_CONTRAST_CAM=$(awk -v last=contrastcam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "saturationcam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_SATURATION_CAM=$(awk -v last=saturationcam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "gaincam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_GAIN_CAM=$(awk -v last=gaincam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "whiteautocam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_WBTA_CAM=$(awk -v last=whiteautocam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "whitecam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_WBT_CAM=$(awk -v last=whitecam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+			if ( grep -q "powerlinecam.$k" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+				PRINT_PWL_CAM=$(awk -v last=powerlinecam.$k 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+			fi
+
 			if [ $CONFIG_FIGURE ]; then
 				echo "$k) $PRINT_VIDEODEV $PRINT_SCREEN_RESOLUTION@$PRINT_FRAMERATE ($PRINT_SCREEN_ASPECT_RATIO) -> $PRINT_DISPLAY_RESOLUTION@$PRINT_FRAMERATE ($PRINT_DISPLAY_ASPECT_RATIO) > $PRINT_VIDEO_PEAK_BITRATE mbps"
-				echo "\tcrop input size=$PRINT_FLAG_CROP, brightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION"
+				echo "\tcrop input size=$PRINT_FLAG_CROP"
+				echo "\tbrightness=$PRINT_BRIGHTNESS, contrast=$PRINT_CONTRAST, hue=$PRINT_HUE, saturation=$PRINT_SATURATION"
 				echo "\trecord=$PRINT_RECORD_VIDEO directory=$PRINT_FILE_PATH"
 				echo "\tbackground image (animation)=$PRINT_BACKGROUND"
 				echo "\tbackground file path=$PRINT_BG_PATH"
@@ -746,6 +825,14 @@ while [ true ] ; do
 				echo "\tcamera=$PRINT_CAMERADEV"
 				echo "\tcamera res=$PRINT_CAMERA_RESOLUTION"
 				echo "\tcamera pos=$PRINT_OVERLAY_CAMERA_POS"
+
+				echo "\tcamera brightness=$PRINT_BRIGHTNESS_CAM"
+				echo "\tcamera contrast=$PRINT_CONTRAST_CAM"
+				echo "\tcamera saturation=$PRINT_SATURATION_CAM"
+				echo "\tcamera gain=$PRINT_GAIN_CAM"
+				echo "\tcamera WBT Auto=$PRINT_WBTA_CAM"
+				echo "\tcamera WBT=$PRINT_WBT_CAM"
+				echo "\tcamera power line frequency=$PRINT_PWL_CAM"
 			fi
 		done
 
@@ -836,6 +923,30 @@ while [ true ] ; do
 				if ( grep -q "camerapos.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 					OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 				fi
+
+				if ( grep -q "brightnesscam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					BRIGHTNESS_CAM=$(awk -v last=brightnesscam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "contrastcam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					CONTRAST_CAM=$(awk -v last=contrastcam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "gaincam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					GAIN_CAM=$(awk -v last=gaincam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "saturationcam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					SATURATION_CAM=$(awk -v last=saturationcam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "whiteautocam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					WBTA_CAM=$(awk -v last=whiteautocam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "whitecam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					WBT_CAM=$(awk -v last=whitecam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+				if ( grep -q "powerlinecam.$CHOOSE_FIGURE" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+					PLF_CAM=$(awk -v last=powerlinecam.$CHOOSE_FIGURE 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+				fi
+
+
 			fi
 		fi
 		if [ "$CHOOSE_FIGURE" = "$NEW_PRESET" ] ; then
@@ -1042,157 +1153,195 @@ while [ true ] ; do
 				fi
 			done
 			# End of setting output resolution
-			# Adjust picture
-			TMP_BRIGHTNESS_=0
-			TMP_CONTRAST_=0
-			TMP_SATURATION_=0
-			TMP_HUE_=0
-
-			# Implemented, but not working!
+			# Picture adjustments color & brightness
 			while [ true ]; do
-				#
-				echo "================================================================================"
-				echo "Set picture settings:\n"
-				echo "\tbrightness=$TMP_BRIGHTNESS_\t(value: -2147483648 < 0 > 2147483648)"
-				echo "\tcontrast=$TMP_CONTRAST_\t(value: -2147483648 < 0 > 2147483648)"
-				echo "\tsaturation=$TMP_SATURATION_\t(value: -2147483648 < 0 > 2147483648)"
-				echo "\thue=$TMP_HUE_\t(value: -2147483648 < 0 > 2147483648)\n"
-				echo "Check if your video game console outputs limited or extended RGB color range!"
-				echo "Check if your TV, monitor handles limited or (extended) RGB color on screen!"
-				echo "Limited RGB input will be streched on TVs, monitors with (extended) RGB color"
-				echo "enabled. The picture may look brighter than it comes from the console onscreen!"
-				echo "That's because limited RGB limits the range of the color values from 16 to 235."
-				echo "Extended RGB hasn't this limit, the range goes from 0 to 255."
-				echo "================================================================================"
-				echo "Adjust brightness, contrast, saturation and hue of the frame grabber."
-				echo "================================================================================"
-				echo "\tEnter a value in the range of -2147483648 to 2147483648."
-				echo "\tThe default value is '0'!\n"
-				echo
-				echo "PICTURE SETTING IS IMPLEMENTED, BUT THERE ARE SOME PROBLEMS WITH THE GSTREAMER"
-				echo " PLUGINS! MAYBE IN A FUTURE RELEASE."
-				echo "YOU CAN USE AN EXTERNAL VIDEO EQUALIZER, IF YOU HAVE ONE OR YOUR SIGNAL TO HDMI"
-				echo " CONVERTER, e. g. OSSC HARDWARE, HAS ONE."
-				echo "All values set to zero by default!\n"
+				while [ true ]; do
+					#
+					BRIGHTNESS_MIN=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/brightness/ { print $5 }' )
+					BRIGHTNESS_MIN_VALUE=${BRIGHTNESS_MIN#*=}
+					CONTRAST_MIN=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/contrast/ { print $5 }' )
+					CONTRAST_MIN_VALUE=${CONTRAST_MIN#*=}
+					SATURATION_MIN=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/saturation/ { print $5 }' )
+					SATURATION_MIN_VALUE=${SATURATION_MIN#*=}
+					HUE_MIN=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/hue/ { print $5 }' )
+					HUE_MIN_VALUE=${HUE_MIN#*=}
 
-				# Stops execution of this part of the program
-				break
-				# Uncomment command for development and testing
+					BRIGHTNESS_MAX=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/brightness/ { print $6 }' )
+					BRIGHTNESS_MAX_VALUE=${BRIGHTNESS_MAX#*=}
+					CONTRAST_MAX=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/contrast/ { print $6 }' )
+					CONTRAST_MAX_VALUE=${CONTRAST_MAX#*=}
+					SATURATION_MAX=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/saturation/ { print $6 }' )
+					SATURATION_MAX_VALUE=${SATURATION_MAX#*=}
+					HUE_MAX=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/hue/ { print $6 }' )
+					HUE_MAX_VALUE=${HUE_MAX#*=}
 
-					while [ true ]; do
-						echo "Enter a value BRIGHTNESS=\c"
-						read TMP_BRIGHTNESS_
-						if [ $TMP_BRIGHTNESS_ -ge -2147483648 ] && [ $TMP_BRIGHTNESS_ -le 2147483648 ]; then
-							break
-						else
-							echo "Brightness value out of range ('-2147483648' < '0' < '2147483648')"
-						fi
-					done
-					while [ true ]; do
-						echo "Enter a value CONTRAST=\c"
-						read TMP_CONTRAST_
-						if [ $TMP_CONTRAST_ -ge -2147483648 ] && [ $TMP_CONTRAST_ -le 2147483648 ]; then
-							break
-						else
-							echo "Contrast value out of range ('-2147483648' < '0' < '2147483648')"
-						fi
-					done
-					while [ true ]; do
-						echo "Enter a value SATURATION=\c"
-						read TMP_SATURATION_
-						if [ $TMP_SATURATION_ -ge -2147483648 ] && [ $TMP_SATURATION_ -le 2147483648 ]; then
-							break
-						else
-							echo "Saturation value out of range ('-2147483648' < '0' < '2147483648')"
-						fi
-					done
-					while [ true ]; do
-						echo "Enter a value HUE=\c"
-						read TMP_HUE_
-						if [ $TMP_HUE_ -ge -2147483648 ] && [ $TMP_HUE_ -le 2147483648 ]; then
-							break
-						else
-							echo "Hue value out of range ('-2147483648' < '0' < '2147483648')"
-						fi
-					done
-
+					BRIGHTNESS_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/brightness/ { print $8 }' )
+					BRIGHTNESS_DEFAULT_VALUE=${BRIGHTNESS_DEFAULT#*=}
+					CONTRAST_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/contrast/ { print $8 }' )
+					CONTRAST_DEFAULT_VALUE=${CONTRAST_DEFAULT#*=}
+					SATURATION_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/saturation/ { print $8 }' )
+					SATURATION_DEFAULT_VALUE=${SATURATION_DEFAULT#*=}
+					HUE_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_DEVICE -l  | awk '/hue/ { print $8 }' )
+					HUE_DEFAULT_VALUE=${HUE_DEFAULT#*=}
 
 					echo "================================================================================"
-					echo "\nYou can 'test' the picture settings with an video input signal, 'accept'"
-					echo " or 'remodify' its values.\n"
-					echo "'test' will write a 10 seconds video test file to your home directory, which"
-					echo "will be deleted afterward. Please, wait this time and don't stop the script!"
-					echo "The first window will show you the video input and a mplayer window will"
-					echo " show you the recorded file with your picture adjustments."
+					v4l2-ctl --device=$V4L2SRC_DEVICE -L
+					for h in `seq 1 7`; do
+						sleep 1
+						echo "Please, wait $h seconds!"
+					done
 					echo "================================================================================"
+					echo "\nSet picture settings:\n"
+					echo "brightness=$TMP_BRIGHTNESS_\t(value: $BRIGHTNESS_MIN_VALUE < $BRIGHTNESS_DEFAULT_VALUE > $BRIGHTNESS_MAX_VALUE)"
+					echo "contrast=$TMP_CONTRAST_\t(value: $CONTRAST_MIN_VALUE < $CONTRAST_DEFAULT_VALUE > $CONTRAST_MAX_VALUE)"
+					echo "saturation=$TMP_SATURATION_\t(value: $SATURATION_MIN_VALUE < $SATURATION_DEFAULT_VALUE > $SATURATION_MAX_VALUE)"
+					echo "hue=$TMP_HUE_\t(value: $HUE_MIN_VALUE < $HUE_DEFAULT_VALUE > $HUE_MAX_VALUE)\n"
+					echo "Check if your video game console outputs limited or extended RGB color range!"
+					echo "Check if your TV, monitor handles limited or (extended) RGB color on screen!"
+					echo "Limited RGB input will be streched on TVs, monitors with (extended) RGB color"
+					echo "enabled. The picture may look brighter than it comes from the console onscreen!"
+					echo "That's because limited RGB limits the range of the color values from 16 to 235."
+					echo "Extended RGB hasn't this limit, the range goes from 0 to 255."
+					echo "================================================================================"
+					echo "Adjust brightness, contrast, saturation and hue of the frame grabber."
+					echo "================================================================================"
+					echo "Enter a value in the range of (center is the default value):"
+					# Stops execution of this part of the program
+					# Uncomment command for development and testing
 
-					eval "BRIGHTNESS=\${TMP_BRIGHTNESS_}"
-					eval "CONTRAST=\${TMP_CONTRAST_}"
-					eval "SATURATION=\${TMP_SATURATION_}"
-					eval "HUE=\${TMP_HUE_}"
+						while [ true ]; do
+							echo "Enter a value between $BRIGHTNESS_MIN_VALUE < $BRIGHTNESS_DEFAULT_VALUE > $BRIGHTNESS_MAX_VALUE: BRIGHTNESS=\c"
+							read TMP_BRIGHTNESS_
+							if [ $TMP_BRIGHTNESS_ -ge $BRIGHTNESS_MIN_VALUE ] && [ $TMP_BRIGHTNESS_ -le $BRIGHTNESS_MAX_VALUE ]; then
+								break
+							else
+								echo "Brightness value out of range ('$BRIGHTNESS_MIN_VALUE' < '$BRIGHTNESS_DEFAULT_VALUE' < '$BRIGHTNESS_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $CONTRAST_MIN_VALUE < $CONTRAST_DEFAULT_VALUE > $CONTRAST_MAX_VALUE: CONTRAST=\c"
+							read TMP_CONTRAST_
+							if [ $TMP_CONTRAST_ -ge $CONTRAST_MIN_VALUE ] && [ $TMP_CONTRAST_ -le $CONTRAST_MAX_VALUE ]; then
+								break
+							else
+								echo "Contrast value out of range ('$CONTRAST_MIN_VALUE' < '$CONTRAST_DEFAULT_VALUE' < '$CONTRAST_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $SATURATION_MIN_VALUE < $SATURATION_DEFAULT_VALUE > $SATURATION_MAX_VALUE: SATURATION=\c"
+							read TMP_SATURATION_
+							if [ $TMP_SATURATION_ -ge $SATURATION_MIN_VALUE ] && [ $TMP_SATURATION_ -le $SATURATION_MAX_VALUE ]; then
+								break
+							else
+								echo "Saturation value out of range ('$SATURATION_MIN_VALUE' < '$SATURATION_DEFAULT_VALUE' < '$SATURATION_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $HUE_MIN_VALUE < $HUE_DEFAULT_VALUE > $HUE_MAX_VALUE: HUE=\c"
+							read TMP_HUE_
+							if [ $TMP_HUE_ -ge $HUE_MIN_VALUE ] && [ $TMP_HUE_ -le $HUE_MAX_VALUE ]; then
+								break
+							else
+								echo "Hue value out of range ('$HUE_MIN_VALUE' < '$HUE_DEFAULT_VALUE' < '$HUE_MAX_VALUE')"
+							fi
+						done
 
-					SCREEN_WIDTH=${SCREEN_RESOLUTION%x*}
-					SCREEN_HEIGHT=${SCREEN_RESOLUTION#*x}
-					DISPLAY_WIDTH=${DISPLAY_RESOLUTION%x*}
-					DISPLAY_HEIGHT=${DISPLAY_RESOLUTION#*x}
 
-					# Start a test
-					gst-launch-1.0 v4l2src \
-						brightness=$BRIGHTNESS \
-						contrast=$CONTRAST \
-						device=$V4L2SRC_DEVICE \
-						hue=$HUE \
-						io-mode=2 \
-						pixel-aspect-ratio=$PIXEL_ASPECT_RATIO_GSTREAMER \
-						saturation=$SATURATION \
-					! "image/jpeg,width=${SCREEN_WIDTH},height=${SCREEN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
-					! jpegparse \
-					! nvjpegdec \
-					! "video/x-raw" \
-					! nvvidconv \
-					! "video/x-raw(memory:NVMM)" \
-					! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
-					! nvvidconv interpolation-method=$SCALER_TYPE \
-					! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT},format=NV12" \
-					! nvoverlaysink \
-						overlay-x=0 \
-						overlay-y=0 \
-						overlay-w=$DISPLAY_WIDTH \
-						overlay-h=$DISPLAY_HEIGHT \
-						overlay=1 \
-						overlay-depth=1 \
-						sync=false \
-						async=false \
-					&
-					# Unstable pipeline and not working
-					# ! videobalance contrast=1.0 brightness=1.0 saturation=1.0 hue=0.0 \
-					# pipeline unstable
+						echo "================================================================================"
+						echo "\nYou can test now the picture settings with an video input signal."
+						echo " You will see now 20 seconds the video input signal in an screen overlay."
+						echo "================================================================================"
 
-					# Get the PID of the gestreamer pipeline
-					PID_GSTREAMER_TEST=$!
-					sleep 15
-					kill -s 15 $PID_GSTREAMER_TEST
-					# Exit endless loop
-					break
+						eval "BRIGHTNESS=\${TMP_BRIGHTNESS_}"
+						eval "CONTRAST=\${TMP_CONTRAST_}"
+						eval "SATURATION=\${TMP_SATURATION_}"
+						eval "HUE=\${TMP_HUE_}"
+
+						# Adjust picture with video 4 linux 2 control
+						v4l2-ctl \
+							--device=$V4L2SRC_DEVICE \
+							--set-ctrl=brightness=$BRIGHTNESS \
+							--set-ctrl=contrast=$CONTRAST \
+							--set-ctrl=saturation=$SATURATION \
+							--set-ctrl=hue=$HUE
+
+						for e in `seq 1 7`; do
+							sleep 1
+							echo "Please, wait $e seconds due technical issues!"
+						done
+
+						SCREEN_WIDTH=${SCREEN_RESOLUTION%x*}
+						SCREEN_HEIGHT=${SCREEN_RESOLUTION#*x}
+						DISPLAY_WIDTH=${DISPLAY_RESOLUTION%x*}
+						DISPLAY_HEIGHT=${DISPLAY_RESOLUTION#*x}
+
+						# Start a test
+						gst-launch-1.0 v4l2src  device=$V4L2SRC_DEVICE \
+									io-mode=2 \
+						! "image/jpeg,width=${SCREEN_WIDTH},height=${SCREEN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
+						! nvjpegdec \
+						! "video/x-raw" \
+						! nvvidconv \
+						! "video/x-raw(memory:NVMM)" \
+						! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
+						! nvvidconv interpolation-method=$SCALER_TYPE \
+						! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT},format=NV12" \
+						! nvoverlaysink \
+							overlay-x=0 \
+							overlay-y=0 \
+							overlay-w=$DISPLAY_WIDTH \
+							overlay-h=$DISPLAY_HEIGHT \
+							overlay=1 \
+							overlay-depth=1 \
+							sync=false \
+							async=false &
+
+						# Get the PID of the gestreamer pipeline
+						PID_GSTREAMER_SRC_TEST=$!
+						sleep 20
+						kill -s 15 $PID_GSTREAMER_SRC_TEST
+						# Exit endless loop
+						break
 				done
-				# End of not working
+				for e in `seq 1 7`; do
+					sleep 1
+					echo "Please, wait $e seconds, because your Video4Linux2 frame grabber"
+					echo " needs a short break!"
+				done
+				while [ true ]; do
+					echo "================================================================================"
+					echo "Are the picture settings 'ok' or do you want to re-adjust it?"
+					echo "================================================================================"
+					echo "Write 'ok' or 'adjust' and press ENTER:"
+					read ASK_PICTURE_SETTINGS
+					case $ASK_PICTURE_SETTINGS in
+						ok) break
+						;;
+						adjust) break
+						;;
+					esac
+				done
+				if [ "$ASK_PICTURE_SETTINGS" = "ok" ]; then
+					break
+				fi
+			done
 					
-				eval "BRIGHTNESS=\${TMP_BRIGHTNESS_}"
-				sed -i "/brightness.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				echo "brightness.${LAST_CONFIG} $BRIGHTNESS" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			eval "BRIGHTNESS=\${TMP_BRIGHTNESS_}"
+			sed -i "/brightness.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "brightness.${LAST_CONFIG} $BRIGHTNESS" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
-				eval "CONTRAST=\${TMP_CONTRAST_}"
-				sed -i "/contrast.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				echo "contrast.${LAST_CONFIG} $CONTRAST" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			eval "CONTRAST=\${TMP_CONTRAST_}"
+			sed -i "/contrast.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "contrast.${LAST_CONFIG} $CONTRAST" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
-				eval "SATURATION=\${TMP_SATURATION_}"
-				sed -i "/saturation.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				echo "saturation.${LAST_CONFIG} $SATURATION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			eval "SATURATION=\${TMP_SATURATION_}"
+			sed -i "/saturation.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "saturation.${LAST_CONFIG} $SATURATION" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
-				eval "HUE=\${TMP_HUE_}"
-				sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				echo "hue.${LAST_CONFIG} $HUE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
-				# End of adjust picture
+			eval "HUE=\${TMP_HUE_}"
+			sed -i "/hue.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "hue.${LAST_CONFIG} $HUE" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			# End of adjust picture
 				# Start of compositing dialog
 				while [ true ]; do
 					echo "================================================================================"
@@ -1366,6 +1515,248 @@ while [ true ] ; do
 					fi
 				done
 				# End of setting camera PiP placement
+			# Camera adjustments color & brightness
+			while [ true ]; do
+				while [ true ]; do
+					#
+					BRIGHTNESS_CAM_MIN=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/brightness/ { print $5 }' )
+					BRIGHTNESS_CAM_MIN_VALUE=${BRIGHTNESS_CAM_MIN#*=}
+					CONTRAST_CAM_MIN=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/contrast/ { print $5 }' )
+					CONTRAST_CAM_MIN_VALUE=${CONTRAST_CAM_MIN#*=}
+					SATURATION_CAM_MIN=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/saturation/ { print $5 }' )
+					SATURATION_CAM_MIN_VALUE=${SATURATION_CAM_MIN#*=}
+					GAIN_CAM_MIN=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/gain/ { print $5 }' )
+					GAIN_CAM_MIN_VALUE=${GAIN_CAM_MIN#*=}
+
+					WBT_CAM_MIN=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/white_balance_temperature/ { print $5 }' | awk '/min/ { print }' )
+					WBT_CAM_MIN_VALUE=${WBT_CAM_MIN#*=}
+					PLF_CAM_MIN=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/power_line_frequency/ { print $5 }' )
+					PLF_CAM_MIN_VALUE=${PLF_CAM_MIN#*=}
+
+					BRIGHTNESS_CAM_MAX=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/brightness/ { print $6 }' )
+					BRIGHTNESS_CAM_MAX_VALUE=${BRIGHTNESS_CAM_MAX#*=}
+					CONTRAST_CAM_MAX=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/contrast/ { print $6 }' )
+					CONTRAST_CAM_MAX_VALUE=${CONTRAST_CAM_MAX#*=}
+					SATURATION_CAM_MAX=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/saturation/ { print $6 }' )
+					SATURATION_CAM_MAX_VALUE=${SATURATION_CAM_MAX#*=}
+					GAIN_CAM_MAX=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/gain/ { print $6 }' )
+					GAIN_CAM_MAX_VALUE=${GAIN_CAM_MAX#*=}
+
+					WBT_CAM_MAX=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/white_balance_temperature/ { print $6 }' | awk '/max/ { print }' )
+					WBT_CAM_MAX_VALUE=${WBT_CAM_MAX#*=}
+					PLF_CAM_MAX=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/power_line_frequency/ { print $6 }' )
+					PLF_CAM_MAX_VALUE=${PLF_CAM_MAX#*=}
+
+					BRIGHTNESS_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/brightness/ { print $8 }' )
+					BRIGHTNESS_CAM_DEFAULT_VALUE=${BRIGHTNESS_CAM_DEFAULT#*=}
+					CONTRAST_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/contrast/ { print $8 }' )
+					CONTRAST_CAM_DEFAULT_VALUE=${CONTRAST_CAM_DEFAULT#*=}
+					SATURATION_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/saturation/ { print $8 }' )
+					SATURATION_CAM_DEFAULT_VALUE=${SATURATION_CAM_DEFAULT#*=}
+					GAIN_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/gain/ { print $8 }' )
+					GAIN_CAM_DEFAULT_VALUE=${GAIN_CAM_DEFAULT#*=}
+
+					WBTA_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/white_balance_temperature_auto/ { print $5 }' )
+					WBTA_CAM_DEFAULT_VALUE=${WBTA_CAM_DEFAULT#*=}
+					WBT_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/white_balance_temperature/ { print $8 }' )
+					WBT_CAM_DEFAULT_VALUE=${WBT_CAM_DEFAULT#*=}
+					PLF_CAM_DEFAULT=$( v4l2-ctl --device=$V4L2SRC_CAMERA -l  | awk '/power_line_frequency/ { print $7 }' )
+					PLF_CAM_DEFAULT_VALUE=${PLF_CAM_DEFAULT#*=}
+
+					echo "================================================================================"
+					v4l2-ctl --device=$V4L2SRC_CAMERA -L
+					for q in `seq 1 7`; do
+						sleep 1
+						echo "Please, wait $q seconds!"
+					done
+					echo "================================================================================"
+					echo "\nSet camera settings:\n"
+					echo "\tbrightness=$TMP_BRIGHTNESS_CAM_\t(value: $BRIGHTNESS_CAM_MIN_VALUE < $BRIGHTNESS_CAM_DEFAULT_VALUE > $BRIGHTNESS_CAM_MAX_VALUE)"
+					echo "\tcontrast=$TMP_CONTRAST_CAM_\t(value: $CONTRAST_CAM_MIN_VALUE < $CONTRAST_CAM_DEFAULT_VALUE > $CONTRAST_CAM_MAX_VALUE)"
+					echo "\tsaturation=$TMP_SATURATION_CAM_\t(value: $SATURATION_CAM_MIN_VALUE < $SATURATION_CAM_DEFAULT_VALUE > $SATURATION_CAM_MAX_VALUE)"
+					echo "\tgain=$TMP_GAIN_CAM_\t(value: $GAIN_CAM_MIN_VALUE < $GAIN_CAM_DEFAULT_VALUE > $GAIN_CAM_MAX_VALUE)"
+					echo "\tWhite balance temp. auto=$TMP_WBTA_CAM_\t(value: $WBTA_CAM_DEFAULT_VALUE)"
+					echo "\tWhite balance temperature=$TMP_WBT_CAM_\t(value: $WBT_CAM_MIN_VALUE < $WBT_CAM_DEFAULT_VALUE > $WBT_CAM_MAX_VALUE)"
+					echo "\tPower line frequency=$TMP_PLF_CAM_\t(value: $PLF_CAM_MIN_VALUE < $PLF_CAM_DEFAULT_VALUE > $PLF_CAM_MAX_VALUE)\n"
+					echo "================================================================================"
+					echo "Adjust the picture settings of the camera. (May or may not work!)"
+					echo "================================================================================"
+					echo "Enter a value in the range of (center value is the default value):"
+					# Stops execution of this part of the program
+					# Uncomment command for development and testing
+
+						while [ true ]; do
+							echo "Enter a value between $BRIGHTNESS_CAM_MIN_VALUE < $BRIGHTNESS_CAM_DEFAULT_VALUE > $BRIGHTNESS_CAM_MAX_VALUE: BRIGHTNESS=\c"
+							read TMP_BRIGHTNESS_CAM_
+							if [ $TMP_BRIGHTNESS_CAM_ -ge $BRIGHTNESS_CAM_MIN_VALUE ] && [ $TMP_BRIGHTNESS_CAM_ -le $BRIGHTNESS_CAM_MAX_VALUE ]; then
+								break
+							else
+								echo "Brightness value out of range ('$BRIGHTNESS_CAM_MIN_VALUE' < '$BRIGHTNESS_CAM_DEFAULT_VALUE' < '$BRIGHTNESS_CAM_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $CONTRAST_CAM_MIN_VALUE < $CONTRAST_CAM_DEFAULT_VALUE > $CONTRAST_CAM_MAX_VALUE: CONTRAST=\c"
+							read TMP_CONTRAST_CAM_
+							if [ $TMP_CONTRAST_CAM_ -ge $CONTRAST_CAM_MIN_VALUE ] && [ $TMP_CONTRAST_CAM_ -le $CONTRAST_CAM_MAX_VALUE ]; then
+								break
+							else
+								echo "Contrast value out of range ('$CONTRAST_CAM_MIN_VALUE' < '$CONTRAST_CAM_DEFAULT_VALUE' < '$CONTRAST_CAM_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $SATURATION_CAM_MIN_VALUE < $SATURATION_CAM_DEFAULT_VALUE > $SATURATION_CAM_MAX_VALUE: SATURATION=\c"
+							read TMP_SATURATION_CAM_
+							if [ $TMP_SATURATION_CAM_ -ge $SATURATION_CAM_MIN_VALUE ] && [ $TMP_SATURATION_CAM_ -le $SATURATION_CAM_MAX_VALUE ]; then
+								break
+							else
+								echo "Saturation value out of range ('$SATURATION_CAM_MIN_VALUE' < '$SATURATION_CAM_DEFAULT_VALUE' < '$SATURATION_CAM_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $GAIN_CAM_MIN_VALUE < $GAIN_CAM_DEFAULT_VALUE > $GAIN_CAM_MAX_VALUE: GAIN=\c"
+							read TMP_GAIN_CAM_
+							if [ $TMP_GAIN_CAM_ -ge $GAIN_CAM_MIN_VALUE ] && [ $TMP_GAIN_CAM_ -le $GAIN_CAM_MAX_VALUE ]; then
+								break
+							else
+								echo "Gain value out of range ('$GAIN_CAM_MIN_VALUE' < '$GAIN_CAM_DEFAULT_VALUE' < '$GAIN_CAM_MAX_VALUE')"
+							fi
+						done
+
+
+						while [ true ]; do
+							echo "Enter a value between $WBTA_CAM_MIN_VALUE < $WBTA_CAM_DEFAULT_VALUE > $WBTA_CAM_MAX_VALUE: White balance auto=\c"
+							read TMP_WBTA_CAM_
+							if [ $TMP_WBTA_CAM_ -ge 0 ] && [ $TMP_WBTA_CAM_ -le 1 ]; then
+								break
+							else
+								echo "White balance auto value out of range ('$WBTA_CAM_MIN_VALUE' < '$WBTA_CAM_DEFAULT_VALUE' < '$WBTA_CAM_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $WBT_CAM_MIN_VALUE < $WBT_CAM_DEFAULT_VALUE > $WBT_CAM_MAX_VALUE: White balance temperature=\c"
+							read TMP_WBT_CAM_
+							if [ $TMP_WBT_CAM_ -ge $WBT_CAM_MIN_VALUE ] && [ $TMP_WBT_CAM_ -le $WBT_CAM_MAX_VALUE ]; then
+								break
+							else
+								echo "White balance temperature out of range ('$WBT_CAM_MIN_VALUE' < '$WBT_CAM_DEFAULT_VALUE' < '$WBT_CAM_MAX_VALUE')"
+							fi
+						done
+						while [ true ]; do
+							echo "Enter a value between $PLF_CAM_MIN_VALUE < $PLF_CAM_DEFAULT_VALUE > $PLF_CAM_MAX_VALUE: Power line frequency=\c"
+							read TMP_PLF_CAM_
+							if [ $TMP_PLF_CAM_ -ge $PLF_CAM_MIN_VALUE ] && [ $TMP_PLF_CAM_ -le $PLF_CAM_MAX_VALUE ]; then
+								break
+							else
+								echo "Power line frequency value out of range ('$PLF_CAM_MIN_VALUE' < '$PLF_CAM_DEFAULT_VALUE' < '$PLF_CAM_MAX_VALUE')"
+							fi
+						done
+
+						echo "================================================================================"
+						echo "\nYou can test now the camera settings."
+						echo " You will see now 20 seconds the camera signal in an screen overlay."
+						echo "================================================================================"
+
+						eval "BRIGHTNESS_CAM=\${TMP_BRIGHTNESS_CAM_}"
+						eval "CONTRAST_CAM=\${TMP_CONTRAST_CAM_}"
+						eval "SATURATION_CAM=\${TMP_SATURATION_CAM_}"
+						eval "GAIN_CAM=\${TMP_GAIN_CAM_}"
+
+						eval "WBTA_CAM=\${TMP_WBTA_CAM_}"
+						eval "WBT_CAM=\${TMP_WBT_CAM_}"
+						eval "PLF_CAM=\${TMP_PLF_CAM_}"
+
+						# Adjust picture with video 4 linux 2 control
+						v4l2-ctl \
+							--device=$V4L2SRC_CAMERA \
+							--set-ctrl=brightness=$BRIGHTNESS_CAM \
+							--set-ctrl=contrast=$CONTRAST_CAM \
+							--set-ctrl=saturation=$SATURATION_CAM \
+							--set-ctrl=gain=$GAIN_CAM \
+							--set-ctrl=white_balance_temperature_auto=$WBTA_CAM \
+							--set-ctrl=white_balance_temperature=$WBT_CAM \
+							--set-ctrl=power_line_frequency=$PLF_CAM
+
+						for e in `seq 1 7`; do
+							sleep 1
+							echo "Please, wait $e seconds due technical issues!"
+						done
+						CAMERA_IN_WIDTH=${CAMERA_RESOLUTION%x*}
+						CAMERA_IN_HEIGHT=${CAMERA_RESOLUTION#*x}
+
+						# Start a test
+						gst-launch-1.0 v4l2src \
+									device=$V4L2SRC_CAMERA \
+									io-mode=2 \
+						! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=30/1" \
+						! jpegparse \
+						! nvjpegdec \
+						! "video/x-raw" \
+						! nvvidconv \
+						! "video/x-raw(memory:NVMM),format=NV12" \
+						! nvoverlaysink overlay-w=$CAMERA_IN_WIDTH \
+								overlay-h=$CAMERA_IN_HEIGHT \
+								sync=false \
+								async=false &
+
+						# Get the PID of the gestreamer pipeline
+						PID_GSTREAMER_CAM_TEST=$!
+						sleep 20
+						kill -s 15 $PID_GSTREAMER_CAM_TEST
+						# Exit endless loop
+						break
+				done
+				for e in `seq 1 7`; do
+					sleep 1
+					echo "Please, wait $e seconds, because your Video4Linux2 camera"
+					echo " needs a short break!"
+				done
+				while [ true ]; do
+					echo "================================================================================"
+					echo "Are the camera settings ok or do you want to re-adjust it?"
+					echo "================================================================================"
+					echo "Write 'ok' or 'adjust' and press ENTER:"
+					read ASK_CAMERA_SETTINGS
+					case $ASK_CAMERA_SETTINGS in
+						ok) break
+						;;
+						adjust) break
+						;;
+					esac
+				done
+				if [ "$ASK_CAMERA_SETTINGS" = "ok" ]; then
+					break
+				fi
+			done
+					
+			eval "BRIGHTNESS_CAM=\${TMP_BRIGHTNESS_CAM_}"
+			sed -i "/brightnesscam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "brightnesscam.${LAST_CONFIG} $BRIGHTNESS_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			eval "CONTRAST_CAM=\${TMP_CONTRAST_CAM_}"
+			sed -i "/contrastcam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "contrastcam.${LAST_CONFIG} $CONTRAST_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			eval "SATURATION_CAM=\${TMP_SATURATION_CAM_}"
+			sed -i "/saturationcam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "saturationcam.${LAST_CONFIG} $SATURATION_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			eval "GAIN_CAM=\${TMP_GAIN_CAM_}"
+			sed -i "/gaincam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "gaincam.${LAST_CONFIG} $GAIN_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			eval "WBTA_CAM=\${TMP_WBTA_CAM_}"
+			sed -i "/whiteautocam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "whiteautocam.${LAST_CONFIG} $WBTA_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			eval "WBT_CAM=\${TMP_WBT_CAM_}"
+			sed -i "/whitecam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "whitecam.${LAST_CONFIG} $WBT_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			eval "PLF_CAM=\${TMP_PLF_CAM_}"
+			sed -i "/powerlinecam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+			echo "powerlinecam.${LAST_CONFIG} $PLF_CAM" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
+			# End of camera adjust
 				# Camera end
 				# Ask for recording to file
 				while [ true ]; do
@@ -1449,6 +1840,14 @@ while [ true ] ; do
 				sed -i "/camerares.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				sed -i "/camerapos.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
 
+				sed -i "/brightnesscam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/contrastcam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/saturationcam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/gaincam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/whiteautocam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/whitecam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+				sed -i "/powerlinecam.$LAST_CONFIG/d" $CONFIG_DIR/$VIDEO_CONFIG_FILE
+
 				if [ $CONFIG_COUNT -ne $LAST_CONFIG ]; then
 					echo "deleted.${LAST_CONFIG}" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 				fi
@@ -1522,6 +1921,57 @@ while [ true ] ; do
 	if ( grep -q "camerapos.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 		OVERLAY_CAMERA_POS=$(awk -v last=camerapos.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 	fi
+	if ( grep -q "brightnesscam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		BRIGHTNESS_CAM=$(awk -v last=brightnesscam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "contrastcam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		CONTRAST_CAM=$(awk -v last=contrastcam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "gaincam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		GAIN_CAM=$(awk -v last=gaincam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "saturationcam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		SATURATION_CAM=$(awk -v last=saturationcam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "whiteautocam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		WBTA_CAM=$(awk -v last=whiteautocam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "whitecam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		WBT_CAM=$(awk -v last=whitecam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+	if ( grep -q "powerlinecam.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
+		PLF_CAM=$(awk -v last=powerlinecam.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
+	fi
+done
+
+# Adjust picture with video 4 linux 2 control
+v4l2-ctl \
+	--device=$V4L2SRC_CAMERA
+        --set-ctrl=brightness=$BRIGHTNESS_CAM \
+        --set-ctrl=contrast=$CONTRAST_CAM \
+        --set-ctrl=saturation=$SATURATION_CAM \
+        --set-ctrl=white_balance_temperature_auto=$WBTA_CAM \
+        --set-ctrl=gain=$GAIN_CAM \
+        --set-ctrl=power_line_frequency=$PLF_CAM \
+        --set-ctrl=white_balance_temperature=$WBT_CAM
+
+echo "Adjusting camera settings."
+for f in `seq 1 7`; do
+	sleep 1
+	echo "Please, wait $f seconds!"
+done
+
+v4l2-ctl \
+	--device=$V4L2SRC_DEVICE \
+	--set-ctrl=brightness=$BRIGHTNESS \
+	--set-ctrl=contrast=$CONTRAST \
+	--set-ctrl=saturation=$SATURATION \
+	--set-ctrl=hue=$HUE
+
+echo "Adjusting picture color and brightness settings."
+for e in `seq 1 7`; do
+	sleep 1
+	echo "Please, wait $e seconds!"
 done
 
 # Check your webcam
@@ -1529,6 +1979,7 @@ gst-launch-1.0 v4l2src \
 	device=$V4L2SRC_CAMERA \
 	io-mode=2 \
 ! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=${FRAMES_PER_SEC}" \
+! jpegparse \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
@@ -1573,9 +2024,6 @@ for d in `seq 1 7`; do
 	echo "Please, wait $d seconds!"
 done
 
-# Wake up drive from sleep state (in case of magnetic HDD)
-ls -alh $FILE_PATH
-
 # Flush the toilet
 gst-launch-1.0 v4l2src device=$V4L2SRC_DEVICE io-mode=2 \
 ! videoconvert \
@@ -1610,6 +2058,8 @@ while [ true ]; do
 	echo "ENTER: 'START' (in upper cases) or 'quit'and ENTER:"
 	read ASK_FINAL_START_STREAMING
 	if [ "$ASK_FINAL_START_STREAMING" = "START" ]; then
+		# Wake up drive from sleep state (in case of magnetic HDD)
+		ls -alh $FILE_PATH
 		break
 	elif [ "$ASK_FINAL_START_STREAMING" = "quit" ]; then
 		exit
@@ -1621,6 +2071,7 @@ if [ "$RECORD_VIDEO" = "yes" ]; then
 else
 	FILE_PATH=/dev/null
 fi
+
 echo "Recording to: $FILE_PATH"
 
 if [ "$DISPLAY_RESOLUTION" = "1920x1080" ]; then
@@ -1713,7 +2164,7 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 	metadatacreator="NVIDIA Jetson Nano/GStreamer 1.14.5 FLV muxer" \
 	name=mux \
 ! tee name=container0 \
-! queue \
+! queue max-size-buffers=1 max-size-bytes=65536 \
 ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 multifilesrc location="${BG_PATH}/${BG_FILE}" \
