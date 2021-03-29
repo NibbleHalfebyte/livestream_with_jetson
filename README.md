@@ -59,4 +59,3 @@ You can't change contrast, brightness, saturation and hue of the video in the pi
 
 Have fun!
 
-Todo list: Color correction
