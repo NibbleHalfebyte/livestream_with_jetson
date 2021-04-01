@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-03-29
-# Version: 0.16g BETA
+# Date: 2021-04-01
+# Version: 0.17d
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -2128,13 +2128,19 @@ elif [ "$SCREEN_ASPECT_RATIO" = "4:3" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" 
 	VIEW_HEIGHT=540
 fi
 
+# Standard camera pipeline pip, low CPU usage
+CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! jpegparse ! nvjpegdec ! video/x-raw ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
+
+# Green screen camera pipeline (alpha), but higher CPU usage
+#CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! jpegparse ! jpegdec ! alpha method=green ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
+
 # Set fix pixel aspect ratio of PIXEL_ASPECT_RATIO_GSTREAMER="1/1"
 eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
 #
-# ! filesink location="/media/marc/data/video/gamecapture/test/video.mp4"  sync=false async=false \
+# ! filesink location="/media/marc/data/video/video.mp4"  sync=false async=false \
 #
 # and for streaming back to
 #
@@ -2168,10 +2174,9 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 multifilesrc location="${BG_PATH}/${BG_FILE}" \
-	index=0 caps="image/jpeg" \
+	index=0 caps="image/jpeg,framerate=${FRAMES_PER_SEC}" \
 	loop=true \
-! "image/jpeg,width=1920,height=1080" \
-! jpegparse \
+	do-timestamp=true \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
@@ -2201,17 +2206,7 @@ v4l2src \
 ! queue \
 ! comp. \
 \
-v4l2src \
-	device=$V4L2SRC_CAMERA \
-	io-mode=2 \
-! "image/jpeg,width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,framerate=${FRAMES_PER_SEC}" \
-! jpegparse \
-! nvjpegdec \
-! "video/x-raw" \
-! nvvidconv \
-! "video/x-raw(memory:NVMM),format=NV12" \
-! nvvidconv interpolation-method=$SCALER_TYPE \
-! "video/x-raw(memory:NVMM),width=$CAM_WIDTH,height=$CAM_HEIGHT" \
+v4l2src $CAMERA_PIPELINE \
 ! tee name=videocam0 \
 ! queue \
 ! comp. \
