@@ -1,3 +1,6 @@
+Video Game Capture with a NVIDIA Jetson Nano: Internet live streaming and compressed recording
+NVIDIA Jetson Nano Developer Kit
+
 This script is to live stream captured video games to Twitch TV. You need an payed Twitch account or Amazon Prime to stream. You can parallel record the stream to a storage device.
 Streaming to YouTube or Facebook should work, too. But you will have to modify the script on your own. The script makes use of GStreamer and the RTMP protocol for network transfer. So every ingest server provider with RTMP should work.
 For first steps you will need a NVIDIA Jetson Nano 4 GB with preinstalled, hardware accelerated GStreamer. I used JetPack 4.5.1, and a 15 bucks Macro Silicon video capture HDMI to USB stick. Other HDMI capture devices, CSI-2 camera connector or USB and USB sound cards, which are supported by Video for Linux 2 on Ubuntu Linux 18.04, may work (at your own risk).
@@ -44,7 +47,7 @@ Next the script will ask you to choose an ingest server in your area from a list
 
 In the next dialog you can proceed with the default settings or add and save presets for future use of different video input and output resolutions and recording etc. This would come handy, if you have different game consoles with different output resolutions. You can also crop the border of the input signal about 3.5% to get rid of NTSC/PAL borders.
 
-You can add a background image in JPEG format. It must be named, e. g. .0000.jpg or -000.jpg. Use the full path to the directory, when the script asks, don't use '~' as shortcut for your home directory! After that you'll be asked about the filename. You must use a fprint compatible format. If your background image has the name background.0000.jpg e. g., you must write background.%04d.jpg into the script! %04 are the number of digits with zero. You have the option to create a folder with a sequence of jpeg images for an background animation. The naming convention is like above, e. g. image.0000.jpg, image.0001.jpg, image.0002.jpg, etc.
+You can add a background image in JPEG format. It must be named, e. g. .0000.jpg or -000.jpg. Use the full path to the directory, when the script asks, don't use '~' as shortcut for your home directory! After that you'll be asked about the filename. You must use a fprint compatible format. If your background image has the name background.0000.jpg e. g., you must write background.%04d.jpg into the script! %04 are the number of digits with zero. You have the option to create a folder with a sequence of jpeg images for an background animation. The naming convention is like above, e. g. image.0000.jpg, image.0001.jpg, image.0002.jpg, etc. The background jpeg picture sequence runs with 30 frames per second. (Your image has the name image.0000.jpg, then you must type image.%04d.jpg into the dialog of the script!)
 
 Next are picture settings and webcam settings for the image. You can adjust brightness, contrast, saturation and hue of the image and some other settings for the webcam. My Logitech C270 webcam does change nothing, when I set brightness and other values, but with the newer models it should work.
 
