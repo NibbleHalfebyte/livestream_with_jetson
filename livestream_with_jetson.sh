@@ -2168,10 +2168,9 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 multifilesrc location="${BG_PATH}/${BG_FILE}" \
-	index=0 caps="image/jpeg" \
+	index=0 caps="image/jpeg,width=1920,height=1080,framerate=${FRAMES_PER_SEC}" \
 	loop=true \
-! "image/jpeg,width=1920,height=1080" \
-! jpegparse \
+	do-timestamp=true \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
