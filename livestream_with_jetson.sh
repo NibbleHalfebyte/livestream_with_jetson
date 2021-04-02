@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-04-01
-# Version: 0.17d
+# Date: 2021-04-03
+# Version: 0.18
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -2129,7 +2129,7 @@ elif [ "$SCREEN_ASPECT_RATIO" = "4:3" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" 
 fi
 
 # Standard camera pipeline pip, low CPU usage
-CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! jpegparse ! nvjpegdec ! video/x-raw ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
+CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! nvjpegdec ! video/x-raw ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
 
 # Green screen camera pipeline (alpha), but higher CPU usage
 #CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! jpegparse ! jpegdec ! alpha method=green ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
