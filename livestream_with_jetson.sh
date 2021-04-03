@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-03
-# Version: 0.20e
+# Version: 0.20f
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -91,9 +91,9 @@ AUDIO_NUM_CH=2
 
 # Overlay size
 OVL1_POSITION_X=0
-OVL1_POSITION_Y=64
-OVL1_SIZE_X=640
-OVL1_SIZE_Y=320
+OVL1_POSITION_Y=0
+OVL1_SIZE_X=1280
+OVL1_SIZE_Y=720
 
 # 2nd Overlay size
 OVL2_POSITION_X=640
@@ -1995,6 +1995,8 @@ gst-launch-1.0 v4l2src \
 # Get the PID of the gestreamer pipeline
 PID_CAMERA_OVERLAY=$!
 
+sleep 3
+
 while [ true ]; do
 	echo "================================================================================\n"
 	echo "\tCheck a last time your webcam positioning with the overlay!\n"
@@ -2050,6 +2052,8 @@ while [ true ]; do
 	echo "\tCheck your desktop audio mixer of the NVIDIA Jetson Nano and mute or"
 	echo "\t disable unused Pulseaudio sources!\n"
 	echo "\tCheck your stream with the Twitch app for mobile devices!"
+	echo "\nIMPORTANT: Move the XTerminal window to the lower right screen corner"
+	echo "\tan overlay will open from the top left corner!"
 	echo "================================================================================"
 	echo "Type one more time the word 'START' (in upper cases) to begin streaming!"
 	echo "================================================================================"
@@ -2146,6 +2150,7 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 ! "video/x-raw(memory:NVMM),framerate=${FRAMES_PER_SEC}" \
 ! nvvidconv interpolation-method=$SCALER_TYPE \
 ! "video/x-raw(memory:NVMM),width=${DISPLAY_WIDTH},height=${DISPLAY_HEIGHT}" \
+! tee name=videoout0 \
 ! omxh264enc iframeinterval=$I_FRAME_INTERVAL \
 	bitrate=$VIDEO_TARGET_BITRATE \
 	peak-bitrate=$VIDEO_PEAK_BITRATE \
@@ -2197,7 +2202,6 @@ v4l2src \
 ! nvvidconv left=$CROP_X0 right=$CROP_X1 top=$CROP_Y0 bottom=$CROP_Y1 \
 ! nvvidconv interpolation-method=$SCALER_TYPE \
 ! "video/x-raw(memory:NVMM),width=${VIEW_WIDTH},height=${VIEW_HEIGHT}" \
-! tee name=videosrc0 \
 ! queue \
 ! comp. \
 \
@@ -2212,7 +2216,6 @@ v4l2src device=${V4L2SRC_CAMERA} \
 ! "video/x-raw(memory:NVMM),format=NV12" \
 ! nvvidconv interpolation-method=${SCALER_TYPE} \
 ! "video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}" \
-! tee name=videocam0 \
 ! queue \
 ! comp. \
 \
@@ -2223,24 +2226,13 @@ alsasrc \
 ! queue \
 ! mux. \
 \
-videosrc0. \
+videoout0. \
 ! nvoverlaysink \
 	overlay-x=$OVL1_POSITION_X \
 	overlay-y=$OVL1_POSITION_Y \
 	overlay-w=$OVL1_SIZE_X \
 	overlay-h=$OVL1_SIZE_Y \
 	overlay=1 \
-	overlay-depth=1 \
-	sync=false \
-	async=false \
-\
-videocam0. \
-! nvoverlaysink \
-	overlay-x=$OVL2_POSITION_X \
-	overlay-y=$OVL2_POSITION_Y \
-	overlay-w=$OVL2_SIZE_X \
-	overlay-h=$OVL2_SIZE_Y \
-	overlay=2 \
 	overlay-depth=1 \
 	sync=false \
 	async=false \
