@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-03
-# Version: 0.18
+# Version: 0.19b
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -1446,23 +1446,17 @@ while [ true ] ; do
 					echo "Please, choose a low resolution for picture in picture with game streaming!"
 					echo " 640x360 should be ok.\n"
 					echo "Camera input resolutions:\n"
-					echo " 1) 1280x720 USB Webcam, MJPEG"
-					echo " 2) 1024x576 USB Webcam, MJPEG"
-					echo " 3)  800x448 USB Webcam, MJPEG"
-					echo " 4)  640x360 USB Webcam, MJPEG"
+					echo " 1)  800x448 USB Webcam, MJPEG"
+					echo " 2)  640x360 USB Webcam, MJPEG"
 					echo "================================================================================"
 					echo "Choose an INPUT resolution from the table."
 					echo "ENTER: Type the number and press ENTER:"
 					read RESOLUTION_CAMERA_IN
-					if [ $RESOLUTION_CAMERA_IN -ge 1 ] && [ $RESOLUTION_CAMERA_IN -le 4 ]; then
+					if [ $RESOLUTION_CAMERA_IN -ge 1 ] && [ $RESOLUTION_CAMERA_IN -le 2 ]; then
 						case $RESOLUTION_CAMERA_IN in
-							1) TMP_CAMERA_RESOLUTION_=1280x720
+							1) TMP_CAMERA_RESOLUTION_=800x448
 							;;
-							2) TMP_CAMERA_RESOLUTION_=1024x576
-							;;
-							3) TMP_CAMERA_RESOLUTION_=800x448
-							;;
-							4) TMP_CAMERA_RESOLUTION_=640x360
+							2) TMP_CAMERA_RESOLUTION_=640x360
 							;;
 						esac
 						echo "================================================================================"
@@ -2128,12 +2122,6 @@ elif [ "$SCREEN_ASPECT_RATIO" = "4:3" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" 
 	VIEW_HEIGHT=540
 fi
 
-# Standard camera pipeline pip, low CPU usage
-CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! nvjpegdec ! video/x-raw ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
-
-# Green screen camera pipeline (alpha), but higher CPU usage
-#CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! jpegparse ! jpegdec ! alpha method=green ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
-
 # Set fix pixel aspect ratio of PIXEL_ASPECT_RATIO_GSTREAMER="1/1"
 eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
 
@@ -2174,9 +2162,9 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 multifilesrc location="${BG_PATH}/${BG_FILE}" \
-	index=0 caps="image/jpeg,framerate=${FRAMES_PER_SEC}" \
+	index=0 caps="image/jpeg,framerate=1/1" \
 	loop=true \
-	do-timestamp=true \
+! jpegparse \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
@@ -2206,7 +2194,16 @@ v4l2src \
 ! queue \
 ! comp. \
 \
-v4l2src $CAMERA_PIPELINE \
+v4l2src device=${V4L2SRC_CAMERA} \
+	io-mode=2 \
+! "image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
+! jpegparse \
+! nvjpegdec \
+! "video/x-raw" \
+! nvvidconv \
+! "video/x-raw(memory:NVMM),format=NV12" \
+! nvvidconv interpolation-method=${SCALER_TYPE} \
+! "video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}" \
 ! tee name=videocam0 \
 ! queue \
 ! comp. \
