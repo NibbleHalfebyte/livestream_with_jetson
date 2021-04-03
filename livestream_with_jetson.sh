@@ -2,21 +2,14 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-03
-# Version: 0.19b
+# Version: 0.20
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
 # Script for game capture live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
-# #blub
-# Usage: jetson_nano2livestream_twitch.sh
 #
-#	MacroSilicon MS2109 USB stick - uvcvideo kernel module
-#	The MS2109 HDMI2USB is limited to <=720p with 60 fps and
-#	1080p with 30 fps, because the USB2 standard limits the
-#	transfer rate to 30 megabytes/s!
-#	For stereo sound with pulsaudio try Stary's blog:
-#	https://9net.org/.../hdmi-capture-without-breaking-the-bank/
+# Usage: ./livestream_with_jetson.sh
 #
 # List capabilties of v4l2 device, e. g. /dev/video0
 # v4l2-ctl -d /dev/video0 --list-formats-ext
@@ -1446,17 +1439,23 @@ while [ true ] ; do
 					echo "Please, choose a low resolution for picture in picture with game streaming!"
 					echo " 640x360 should be ok.\n"
 					echo "Camera input resolutions:\n"
-					echo " 1)  800x448 USB Webcam, MJPEG"
-					echo " 2)  640x360 USB Webcam, MJPEG"
+					echo " 1) 1280x720 USB Webcam, MJPEG"
+					echo " 2) 1024x576 USB Webcam, MJPEG"
+					echo " 3)  800x448 USB Webcam, MJPEG"
+					echo " 4)  640x360 USB Webcam, MJPEG"
 					echo "================================================================================"
 					echo "Choose an INPUT resolution from the table."
 					echo "ENTER: Type the number and press ENTER:"
 					read RESOLUTION_CAMERA_IN
-					if [ $RESOLUTION_CAMERA_IN -ge 1 ] && [ $RESOLUTION_CAMERA_IN -le 2 ]; then
+					if [ $RESOLUTION_CAMERA_IN -ge 1 ] && [ $RESOLUTION_CAMERA_IN -le 4 ]; then
 						case $RESOLUTION_CAMERA_IN in
-							1) TMP_CAMERA_RESOLUTION_=800x448
+							1) TMP_CAMERA_RESOLUTION_=1280x720
 							;;
-							2) TMP_CAMERA_RESOLUTION_=640x360
+							2) TMP_CAMERA_RESOLUTION_=1024x576
+							;;
+							3) TMP_CAMERA_RESOLUTION_=800x448
+							;;
+							4) TMP_CAMERA_RESOLUTION_=640x360
 							;;
 						esac
 						echo "================================================================================"
@@ -2164,7 +2163,6 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 multifilesrc location="${BG_PATH}/${BG_FILE}" \
 	index=0 caps="image/jpeg,framerate=1/1" \
 	loop=true \
-! jpegparse \
 ! nvjpegdec \
 ! "video/x-raw" \
 ! nvvidconv \
@@ -2196,10 +2194,11 @@ v4l2src \
 \
 v4l2src device=${V4L2SRC_CAMERA} \
 	io-mode=2 \
+	do-timestamp=true \
 ! "image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
-! jpegparse \
-! nvjpegdec \
-! "video/x-raw" \
+! nvv4l2decoder \
+	mjpeg=true \
+	disable-dpb=true \
 ! nvvidconv \
 ! "video/x-raw(memory:NVMM),format=NV12" \
 ! nvvidconv interpolation-method=${SCALER_TYPE} \
