@@ -2,21 +2,19 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-03
-# Version: 0.18
+# Version: 0.20e
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
 # Script for game capture live streaming to Twitch, YT, FB
 # with NVidia Jetson Nano embedded computer
-# #blub
-# Usage: jetson_nano2livestream_twitch.sh
 #
-#	MacroSilicon MS2109 USB stick - uvcvideo kernel module
-#	The MS2109 HDMI2USB is limited to <=720p with 60 fps and
-#	1080p with 30 fps, because the USB2 standard limits the
-#	transfer rate to 30 megabytes/s!
-#	For stereo sound with pulsaudio try Stary's blog:
-#	https://9net.org/.../hdmi-capture-without-breaking-the-bank/
+# Usage: ./livestream_with_jetson.sh
+#
+# Note: Background jpeg sequence runs with 30 fps, but
+#	CPU usage is very high.
+#	Changing to RT priority, e. g. chrt --rr 19 and
+#	run with super user bit, maybe. But it's not user friendly.
 #
 # List capabilties of v4l2 device, e. g. /dev/video0
 # v4l2-ctl -d /dev/video0 --list-formats-ext
@@ -2128,12 +2126,6 @@ elif [ "$SCREEN_ASPECT_RATIO" = "4:3" ] && [ "$DISPLAY_RESOLUTION" = "1280x720" 
 	VIEW_HEIGHT=540
 fi
 
-# Standard camera pipeline pip, low CPU usage
-CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! nvjpegdec ! video/x-raw ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
-
-# Green screen camera pipeline (alpha), but higher CPU usage
-#CAMERA_PIPELINE="device=${V4L2SRC_CAMERA} io-mode=2 ! image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC} ! jpegparse ! jpegdec ! alpha method=green ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! nvvidconv interpolation-method=${SCALER_TYPE} ! video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}"
-
 # Set fix pixel aspect ratio of PIXEL_ASPECT_RATIO_GSTREAMER="1/1"
 eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
 
@@ -2171,10 +2163,12 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 	name=mux \
 ! tee name=container0 \
 ! queue max-size-buffers=1 max-size-bytes=65536 \
-! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
+! filesink location="/media/marc/data/video/video.mp4"  sync=false async=false \
 \
-multifilesrc location="${BG_PATH}/${BG_FILE}" \
-	index=0 caps="image/jpeg,framerate=${FRAMES_PER_SEC}" \
+multifilesrc \
+	location="${BG_PATH}/${BG_FILE}" \
+	index=0 \
+	caps="image/jpeg,framerate=${FRAMES_PER_SEC}" \
 	loop=true \
 	do-timestamp=true \
 ! nvjpegdec \
@@ -2194,6 +2188,7 @@ v4l2src \
 	pixel-aspect-ratio=$PIXEL_ASPECT_RATIO_GSTREAMER \
 	saturation=$SATURATION \
 	io-mode=2 \
+	do-timestamp=true \
 ! "image/jpeg,width=${SCREEN_WIDTH},height=${SCREEN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
 ! nvjpegdec \
 ! "video/x-raw" \
@@ -2206,7 +2201,17 @@ v4l2src \
 ! queue \
 ! comp. \
 \
-v4l2src $CAMERA_PIPELINE \
+v4l2src device=${V4L2SRC_CAMERA} \
+	io-mode=2 \
+	do-timestamp=true \
+! "image/jpeg,width=${CAMERA_IN_WIDTH},height=${CAMERA_IN_HEIGHT},framerate=${FRAMES_PER_SEC}" \
+! nvv4l2decoder \
+	mjpeg=true \
+	disable-dpb=true \
+! nvvidconv \
+! "video/x-raw(memory:NVMM),format=NV12" \
+! nvvidconv interpolation-method=${SCALER_TYPE} \
+! "video/x-raw(memory:NVMM),width=${CAM_WIDTH},height=${CAM_HEIGHT}" \
 ! tee name=videocam0 \
 ! queue \
 ! comp. \
