@@ -2163,7 +2163,7 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 	name=mux \
 ! tee name=container0 \
 ! queue max-size-buffers=1 max-size-bytes=65536 \
-! filesink location="/media/marc/data/video/video.mp4"  sync=false async=false \
+! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
 \
 multifilesrc \
 	location="${BG_PATH}/${BG_FILE}" \
