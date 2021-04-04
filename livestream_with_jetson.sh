@@ -2271,7 +2271,7 @@ while [ true ] ; do
 				break
 			fi
 	fi
-done448
+done
 kill -s 15 $PID_GSTREAMER_PIPELINE
 echo "\n================================================================================\n"
 echo "\t\tSTREAM STOPPED!\n"
