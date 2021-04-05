@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-03
-# Version: 0.20f
+# Version: 0.21 stable
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -1446,7 +1446,7 @@ while [ true ] ; do
 					echo "Camera input resolutions:\n"
 					echo " 1) 1280x720 USB Webcam, MJPEG"
 					echo " 2) 1024x576 USB Webcam, MJPEG"
-					echo " 3)  800x448 USB Webcam, MJPEG"
+					echo " 3)  960x544 USB Webcam, MJPEG"
 					echo " 4)  640x360 USB Webcam, MJPEG"
 					echo "================================================================================"
 					echo "Choose an INPUT resolution from the table."
@@ -1458,7 +1458,7 @@ while [ true ] ; do
 							;;
 							2) TMP_CAMERA_RESOLUTION_=1024x576
 							;;
-							3) TMP_CAMERA_RESOLUTION_=800x448
+							3) TMP_CAMERA_RESOLUTION_=960x544
 							;;
 							4) TMP_CAMERA_RESOLUTION_=640x360
 							;;
@@ -2132,6 +2132,10 @@ fi
 
 # Set fix pixel aspect ratio of PIXEL_ASPECT_RATIO_GSTREAMER="1/1"
 eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
+
+# For testing:
+echo "Cam x position: $CAM_POS_X"
+echo "Cam corner: $OVERLAY_CAMERA_POS"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
