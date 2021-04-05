@@ -54,24 +54,3 @@ Type START to begin with the live stream. Be patient, you will see an onscreen o
 Have fun!
 
 Important tips: The Ubuntu version for Jetson Nano has power savings enabled, because most people built edge applications and robots with it. To unlock the full CPU speed you must switch the power mode to MAXN. (Top left corner of the deskop, where you see NVIDIA symbol in the top menu bar.) It's better to run jetson_clocks from the commandline to disable dynamic clocking of the CPU, GPU and accelerator units. You can put it into a start up script /etc/rc.local to run it after every reboot. Don't do any other task with the Jetson Nano, when you run livestream_with_jetson.sh. It's an embedded computer and has not much more CPU compute power than a Raspberry Pi (4x1.5 GHz ARM Cortex). The only difference are the 128 CUDA GPU cores and the NVENC, NVDEC, NVJPEG co-processing units. The main task of the CPU is memory management and shuffling data to the co-processor units!
-
-Tested and works:
-in 1920x1080 HD 16:9 -> out 1920x1080p@30
-in 1920x1080 HD 16:9 -> out 1280x720p@30
-in 720x480 NTSC 4:3 -> out 1920x1080p@30
-
-Untested:
-in 1360x768 HD Ready 16:9 -> 1920x1080p@30
-in 1360x768 HD Ready 16:9 -> 1280x720p@30
-in 1280x720 HD Ready 16:9 -> 1920x1080p@30
-in 1280x720 HD Ready 16:9 -> 1280x720p@30
-in 720x576 PAL 16:9 -> 1920x1080p@30
-in 720x576 PAL 16:9 -> 1280x720p@30
-in 720x576 PAL 4:3 -> 1920x1080p@30
-in 720x576 PAL 4:3 -> 1280x720p@30
-in 720x480 NTSC 16:9 -> out 1920x1080p@30
-in 720x480 NTSC 4:3 -> out 1280x720p@30
-in 640x480 SDTV 16:9 -> out 1920x1080p@30
-
-Error, does not work (at the moment):
-in 640x480 SDTV 4:3 -> out 1920x1080p@30
