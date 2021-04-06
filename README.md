@@ -58,10 +58,9 @@ Important tips: The Ubuntu version for Jetson Nano has power savings enabled, be
 
 Problems: Some combinations of input resolution and camera position and resolution don't work! You will only see the test image of the Macro Silicon 2109 and no camera picture in picture. The script makes use of the hardware video encoders of the Jetson Nano and does not use any of the 128 CUDA cores with Embedded OpenGL for compositing. I can't find any documentation about the hardware video compositor and some combinations don't work and others, with the camera picture in picture in another position in the same resolution may work! The hardware encoder is not free programmable! That's why I add a list of tested presets. I can't test all combinations at once, sry.
 
-List of tested combinations of framegrabber resolution, camera pip position and resolution: (Uncomplete, will change in the future!)**
+List of tested combinations of framegrabber resolution, camera pip position and resolution: (Uncomplete, will change in the future!)
+- input 1920x1080p, webcam res. 960x544p,pos. top right, output 1920x1080p (most combinations should work)
+- input 720x480, webcam res. 640x360p,pos. bottom left, output 1920x1080p
 
-input 1920x1080p, webcam res. 960x544p,pos. top right, output 1920x1080p (most combinations should work)
-input 720x480, webcam res. 640x360p,pos. bottom left, output 1920x1080p
 Most problems (seems not to work in any case):
-
-input 640x480p, webcam res. any, pos. any, output any
+- input 640x480p, webcam res. any, pos. any, output any
