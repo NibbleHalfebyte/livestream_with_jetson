@@ -1,4 +1,4 @@
-Working combinations of resolutions, with and without background (tested version 0.21):
+Working combinations of resolutions, with and without background (tested version 0.21-4):
 
 video in 1920x1080 - fullscreen, video out 1920x1080, cam 1280x720 - top left
 video in 1920x1080 - fullscreen, video out 1920x1080, cam 1280x720 - top right
@@ -45,7 +45,21 @@ video in 1920x1080 - background border, video out 1920x1080, cam 1280x720 - top 
 video in 1920x1080 - background border, video out 1920x1080, cam 1280x720 - bottom left
 video in 1920x1080 - background border, video out 1920x1080, cam 1280x720 - bottom right
 
+video in 1920x1080 - background border, video out 1920x1080, cam 1024x576 - top left
+video in 1920x1080 - background border, video out 1920x1080, cam 1024x576 - top right
+video in 1920x1080 - background border, video out 1920x1080, cam 1024x576 - bottom left
+video in 1920x1080 - background border, video out 1920x1080, cam 1024x576 - bottom right
+
+video in 1920x1080 - background border, video out 1920x1080, cam 960x544 - top left
+video in 1920x1080 - background border, video out 1920x1080, cam 960x544 - top right
+video in 1920x1080 - background border, video out 1920x1080, cam 960x544 - bottom left
+video in 1920x1080 - background border, video out 1920x1080, cam 960x544 - bottom right
+
+video in 1920x1080 - background border, video out 1920x1080, cam 640x360 - top left
+video in 1920x1080 - background border, video out 1920x1080, cam 640x360 - top right
+video in 1920x1080 - background border, video out 1920x1080, cam 640x360 - bottom left
+video in 1920x1080 - background border, video out 1920x1080, cam 640x360 - bottom right
+
 video in 720x480 - 3.5% border crop - background border, video out 1920x1080, cam 640x360 - bottom left
 
 Not working:
-
