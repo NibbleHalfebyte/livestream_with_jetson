@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-03
-# Version: 0.21-2 stable
+# Version: 0.21-4 stable
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -1944,7 +1944,7 @@ done
 
 # Adjust picture with video 4 linux 2 control
 v4l2-ctl \
-	--device=$V4L2SRC_CAMERA
+	--device=$V4L2SRC_CAMERA \
         --set-ctrl=brightness=$BRIGHTNESS_CAM \
         --set-ctrl=contrast=$CONTRAST_CAM \
         --set-ctrl=saturation=$SATURATION_CAM \
