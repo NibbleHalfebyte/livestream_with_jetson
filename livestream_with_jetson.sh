@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-09
-# Version: 0.22
+# Version: 0.24a-beta
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -1935,7 +1935,12 @@ while [ true ] ; do
 	fi
 done
 
-# Adjust picture with video 4 linux 2 control
+# V4L2 Settings start
+echo "Video frame grabber format was: $V4L2SRC_DEVICE"
+v4l2-ctl -V --device=$V4L2SRC_DEVICE
+echo "Video web camera format was: $V4L2SRC_CAMERA"
+v4l2-ctl -V --device=$V4L2SRC_CAMERA
+# Set V4L2 frame grabber device
 v4l2-ctl \
 	--device=$V4L2SRC_CAMERA \
         --set-ctrl=brightness=$BRIGHTNESS_CAM \
@@ -1944,28 +1949,29 @@ v4l2-ctl \
         --set-ctrl=white_balance_temperature_auto=$WBTA_CAM \
         --set-ctrl=gain=$GAIN_CAM \
         --set-ctrl=power_line_frequency=$PLF_CAM \
-        --set-ctrl=white_balance_temperature=$WBT_CAM
-
-echo "Adjusting camera settings."
-for f in `seq 1 7`; do
-	sleep 1
-	echo "Please, wait $f seconds!"
-done
-
+        --set-ctrl=white_balance_temperature=$WBT_CAM \
+	--set-fmt-video=width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,pixelformat=sRGB
+# Set V4L2 camera device
 v4l2-ctl \
 	--device=$V4L2SRC_DEVICE \
 	--set-ctrl=brightness=$BRIGHTNESS \
 	--set-ctrl=contrast=$CONTRAST \
 	--set-ctrl=saturation=$SATURATION \
-	--set-ctrl=hue=$HUE
+	--set-ctrl=hue=$HUE \
+	--set-fmt-video=width=$SCREEN_WIDTH,height=$SCREEN_HEIGHT,pixelformat=sRGB
+# Formats set to
+echo "Video frame grabber format is: $V4L2SRC_DEVICE"
+v4l2-ctl -V --device=$V4L2SRC_DEVICE
+echo "Video web camera format is: $V4L2SRC_CAMERA"
+v4l2-ctl -V --device=$V4L2SRC_CAMERA
+# V4L2 Settings end
 
-echo "Adjusting picture color and brightness settings."
-for e in `seq 1 7`; do
+for a in `seq 1 8`; do
 	sleep 1
-	echo "Please, wait $e seconds!"
+	echo "Please, wait $a seconds!"
 done
 
-# Check your webcam
+# Check your webcam start
 gst-launch-1.0 v4l2src \
 	device=$V4L2SRC_CAMERA \
 	io-mode=2 \
@@ -1989,8 +1995,6 @@ gst-launch-1.0 v4l2src \
 # Get the PID of the gestreamer pipeline
 PID_CAMERA_OVERLAY=$!
 
-sleep 3
-
 while [ true ]; do
 	echo "================================================================================\n"
 	echo "\tCheck a last time your webcam positioning with the overlay!\n"
@@ -2013,30 +2017,7 @@ done
 # Close overlay
 kill -s 15 $PID_CAMERA_OVERLAY
 
-for d in `seq 1 7`; do
-	sleep 1
-	echo "Please, wait $d seconds. Try to flush the toilete!"
-done
-
-# Flush the toilet
-gst-launch-1.0 v4l2src \
-	device=$V4L2SRC_DEVICE \
-	io-mode=2 \
-	pixel-aspect-ratio=1/1 \
-! videoconvert \
-! xvimagesink \
-	window-width=${SCREEN_WIDTH} \
-	window-height=${SCREEN_HEIGHT} \
--e &
-
-PID_GSTREAMER_V4L2SRC_PREVIEW=$!
-
-for b in `seq 1 10`; do
-	sleep 1
-	echo "Please, wait ten seconds, $b, resetting the the NV hardware de-/encoders!"
-done
-kill -s 15 $PID_GSTREAMER_V4L2SRC_PREVIEW
-# Flushed, NVENC, NVDEC and NVJPEG cores resetted
+# Check your webcam end
 
 for a in `seq 1 8`; do
 	sleep 1
@@ -2226,7 +2207,8 @@ v4l2src device=${V4L2SRC_CAMERA} \
 ! queue \
 ! comp. \
 \
-alsasrc \
+pulsesrc \
+! audioresample \
 ! "audio/x-raw,format=S16LE,layout=interleaved, rate=${AUDIO_SAMPLING_RATE}, channels=${AUDIO_NUM_CH}" \
 ! voaacenc bitrate=$AUDIO_BIT_RATE \
 ! aacparse \
