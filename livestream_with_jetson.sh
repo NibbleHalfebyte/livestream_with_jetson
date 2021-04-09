@@ -1,8 +1,8 @@
 #!/bin/sh
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-04-03
-# Version: 0.21-2 stable
+# Date: 2021-04-09
+# Version: 0.22
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -820,17 +820,11 @@ while [ true ] ; do
 				echo "\tbackground image (animation)=$PRINT_BACKGROUND"
 				echo "\tbackground file path=$PRINT_BG_PATH"
 				echo "\tbackground file=$PRINT_BG_FILE"
-				echo "\tcamera=$PRINT_CAMERADEV"
-				echo "\tcamera res=$PRINT_CAMERA_RESOLUTION"
-				echo "\tcamera pos=$PRINT_OVERLAY_CAMERA_POS"
-
-				echo "\tcamera brightness=$PRINT_BRIGHTNESS_CAM"
-				echo "\tcamera contrast=$PRINT_CONTRAST_CAM"
-				echo "\tcamera saturation=$PRINT_SATURATION_CAM"
-				echo "\tcamera gain=$PRINT_GAIN_CAM"
-				echo "\tcamera WBT Auto=$PRINT_WBTA_CAM"
-				echo "\tcamera WBT=$PRINT_WBT_CAM"
-				echo "\tcamera power line frequency=$PRINT_PWL_CAM"
+				echo "\tcamera=$PRINT_CAMERADEV camera res=$PRINT_CAMERA_RESOLUTION"
+				echo "\tcamera pos=$PRINT_OVERLAY_CAMERA_POS camera brightness=$PRINT_BRIGHTNESS_CAM"
+				echo "\tcamera contrast=$PRINT_CONTRAST_CAM camera saturation=$PRINT_SATURATION_CAM"
+				echo "\tcamera gain=$PRINT_GAIN_CAM camera WBT Auto=$PRINT_WBTA_CAM"
+				echo "\tcamera WBT=$PRINT_WBT_CAM camera power line frequency=$PRINT_PWL_CAM"
 			fi
 		done
 
@@ -1292,7 +1286,7 @@ while [ true ] ; do
 							overlay=1 \
 							overlay-depth=1 \
 							sync=false \
-							async=false &
+							async=false -e &
 
 						# Get the PID of the gestreamer pipeline
 						PID_GSTREAMER_SRC_TEST=$!
@@ -1580,8 +1574,6 @@ while [ true ] ; do
 					echo "Adjust the picture settings of the camera. (May or may not work!)"
 					echo "================================================================================"
 					echo "Enter a value in the range of (center value is the default value):"
-					# Stops execution of this part of the program
-					# Uncomment command for development and testing
 
 						while [ true ]; do
 							echo "Enter a value between $BRIGHTNESS_CAM_MIN_VALUE < $BRIGHTNESS_CAM_DEFAULT_VALUE > $BRIGHTNESS_CAM_MAX_VALUE: BRIGHTNESS=\c"
@@ -1694,10 +1686,11 @@ while [ true ] ; do
 						! nvoverlaysink overlay-w=$CAMERA_IN_WIDTH \
 								overlay-h=$CAMERA_IN_HEIGHT \
 								sync=false \
-								async=false &
+								async=false -e &
 
 						# Get the PID of the gestreamer pipeline
 						PID_GSTREAMER_CAM_TEST=$!
+						echo "Please, wait 20 seconds and check the image."
 						sleep 20
 						kill -s 15 $PID_GSTREAMER_CAM_TEST
 						# Exit endless loop
@@ -1944,7 +1937,7 @@ done
 
 # Adjust picture with video 4 linux 2 control
 v4l2-ctl \
-	--device=$V4L2SRC_CAMERA
+	--device=$V4L2SRC_CAMERA \
         --set-ctrl=brightness=$BRIGHTNESS_CAM \
         --set-ctrl=contrast=$CONTRAST_CAM \
         --set-ctrl=saturation=$SATURATION_CAM \
@@ -1983,15 +1976,16 @@ gst-launch-1.0 v4l2src \
 ! nvvidconv \
 ! "video/x-raw(memory:NVMM),format=NV12" \
 ! nvoverlaysink \
-	overlay-x=$OVL2_POSITION_X \
-	overlay-y=$OVL2_POSITION_Y \
-	overlay-w=$OVL2_SIZE_X \
-	overlay-h=$OVL2_SIZE_Y \
+	overlay-x=0 \
+	overlay-y=0 \
+	overlay-w=$CAMERA_IN_WIDTH \
+	overlay-h=$CAMERA_IN_HEIGHT \
 	overlay=2 \
 	overlay-depth=1 \
 	sync=false \
 	async=false \
-&
+-e &
+
 # Get the PID of the gestreamer pipeline
 PID_CAMERA_OVERLAY=$!
 
@@ -2021,13 +2015,19 @@ kill -s 15 $PID_CAMERA_OVERLAY
 
 for d in `seq 1 7`; do
 	sleep 1
-	echo "Please, wait $d seconds!"
+	echo "Please, wait $d seconds. Try to flush the toilete!"
 done
 
 # Flush the toilet
-gst-launch-1.0 v4l2src device=$V4L2SRC_DEVICE io-mode=2 \
+gst-launch-1.0 v4l2src \
+	device=$V4L2SRC_DEVICE \
+	io-mode=2 \
+	pixel-aspect-ratio=1/1 \
 ! videoconvert \
-! xvimagesink &
+! xvimagesink \
+	window-width=${SCREEN_WIDTH} \
+	window-height=${SCREEN_HEIGHT} \
+-e &
 
 PID_GSTREAMER_V4L2SRC_PREVIEW=$!
 
@@ -2038,7 +2038,7 @@ done
 kill -s 15 $PID_GSTREAMER_V4L2SRC_PREVIEW
 # Flushed, NVENC, NVDEC and NVJPEG cores resetted
 
-for a in `seq 1 7`; do
+for a in `seq 1 8`; do
 	sleep 1
 	echo "Please, wait $a seconds!"
 done
@@ -2135,16 +2135,19 @@ eval "PIXEL_ASPECT_RATIO_GSTREAMER=\1/1"
 
 # For testing:
 echo "Cam x position: $CAM_POS_X"
+echo "Cam x position: $CAM_POS_Y"
+echo "Cam width: $CAM_WIDTH"
+echo "Cam height: $CAM_HEIGHT"
 echo "Cam corner: $OVERLAY_CAMERA_POS"
 
 # For testing purpose switch the av pipeline output to filesink. It's very important to verify the
 # output frame rate of the stream. Test the frame rate with of the video.mp4 file with mplayer!
 #
-# ! filesink location="/media/marc/data/video/video.mp4"  sync=false async=false \
+# ! filesink location="/media/marc/data/video/video.mp4"  sync=false async=false -e \
 #
 # and for streaming back to
 #
-# ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
+# ! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false -e \
 #
 # GStreamer v4l2src with mjpeg must have the mmap option enabled!
 gst-launch-1.0 nvcompositor name=comp \
@@ -2172,7 +2175,7 @@ sink_2::xpos=$CAM_POS_X sink_2::ypos=$CAM_POS_Y sink_2::width=$CAM_WIDTH sink_2:
 	name=mux \
 ! tee name=container0 \
 ! queue max-size-buffers=1 max-size-bytes=65536 \
-! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false \
+! rtmpsink location="$LIVE_SERVER$STREAM_KEY?bandwidth_test=false" sync=false async=false -e \
 \
 multifilesrc \
 	location="${BG_PATH}/${BG_FILE}" \
