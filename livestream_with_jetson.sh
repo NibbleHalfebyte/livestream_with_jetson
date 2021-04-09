@@ -2,7 +2,7 @@
 #
 # File: livestream_with_jetson.sh 
 # Date: 2021-04-09
-# Version: 0.22
+# Version: 0.23-stable
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -2226,7 +2226,8 @@ v4l2src device=${V4L2SRC_CAMERA} \
 ! queue \
 ! comp. \
 \
-alsasrc \
+pulsesrc \
+! audioresample \
 ! "audio/x-raw,format=S16LE,layout=interleaved, rate=${AUDIO_SAMPLING_RATE}, channels=${AUDIO_NUM_CH}" \
 ! voaacenc bitrate=$AUDIO_BIT_RATE \
 ! aacparse \
