@@ -1,4 +1,4 @@
-Working combinations of resolutions, with and without background (tested version 0.21-4):
+Working combinations of resolutions, with and without background (tested version 0.22):
 
 1920x1080 - 16:9 -> 1920x1080 - 16:9 (fullscreen):
 ------------------------------------------------------------------------------
@@ -66,8 +66,61 @@ video in 1920x1080-16:9 - full screen, video out 1280x720-16:9, cam 640x360 - to
 video in 1920x1080-16:9 - full screen, video out 1280x720-16:9, cam 640x360 - bottom left
 video in 1920x1080-16:9 - full screen, video out 1280x720-16:9, cam 640x360 - bottom right
 
-720x480 NTSC 4:3 -> 1920x1080 (crop main video)
+720x576 PAL 4:3 -> 1920x1080 - 16:9 (with border and/or background, crop main video)
 ------------------------------------------------------------------------------
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1280x720 - top left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1280x720 - top right
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1280x720 - bottom left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1280x720 - bottom right
+
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1024x576 - top left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1024x576 - top right
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1024x576 - bottom left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 1024x576 - bottom right
+
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 960x544 - top left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 960x544 - top right
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 960x544 - bottom left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 960x544 - bottom right
+
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - top left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - top right
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - bottom left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - bottom right
+
+720x576 PAL 16:9 -> 1920x1080 - 16:9 (full screen, crop main video)
+------------------------------------------------------------------------------
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1920x1080-16:9, cam 640x360 - top left
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1920x1080-16:9, cam 640x360 - top right
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1920x1080-16:9, cam 640x360 - bottom left
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1920x1080-16:9, cam 640x360 - bottom right
+
+720x576 PAL 16:9 -> 1920x1080 - 16:9 (with border and/or background, crop main video)
+------------------------------------------------------------------------------
+video in 720x576-16:9 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - top left
+video in 720x576-16:9 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - top right
+video in 720x576-16:9 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - bottom left
+video in 720x576-16:9 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - bottom right
+
+720x576 PAL 4:3 -> 1280x720 - 16:9 (with border and/or background, crop main video)
+------------------------------------------------------------------------------
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1280x720-16:9, cam 640x360 - top left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1280x720-16:9, cam 640x360 - top right
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1280x720-16:9, cam 640x360 - bottom left
+video in 720x576-4:3 - 3.5% border crop - background border, video out 1280x720-16:9, cam 640x360 - bottom right
+
+720x576 PAL 16:9 -> 1280x720 - 16:9 (full screen, crop main video)
+------------------------------------------------------------------------------
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1280x720-16:9, cam 640x360 - top left
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1280x720-16:9, cam 640x360 - top right
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1280x720-16:9, cam 640x360 - bottom left
+video in 720x576-16:9 - 3.5% border crop - full screen, video out 1280x720-16:9, cam 640x360 - bottom right
+
+720x480 NTSC 4:3 -> 1920x1080 (with border and/or background, crop main video)
+------------------------------------------------------------------------------
+video in 720x480-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - top left
+video in 720x480-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - top right
 video in 720x480-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - bottom left
+video in 720x480-4:3 - 3.5% border crop - background border, video out 1920x1080-16:9, cam 640x360 - bottom right
 
 Not working:
