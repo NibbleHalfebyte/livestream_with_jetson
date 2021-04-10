@@ -1,8 +1,15 @@
 #!/bin/sh
 #
+# VERY IMPORTANT: IF YOU'VE CHANGED THE VIDEO SETTINGS TO ANOTHER PRESET 
+#		  (RESOLUTION CHANGE), DO A REBOOT WITH HARD RESET
+#		  (UNPLUG FROM POWER) BEFORE STREAMING!
+#		  I CAN'T RESET THE NVENC, NVJPEG UNITS THROUGH A
+#		  SOFTWARE FUNCTION AND IT KEEPS SOME OLD STUFF
+#		  FROM THE PREVIOUSE SETTING IN ITS REGISTERS!
+#
 # File: livestream_with_jetson.sh 
-# Date: 2021-04-09
-# Version: 0.23-stable
+# Date: 2021-04-10
+# Version: 0.25-stable
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -682,11 +689,6 @@ while [ true ] ; do
 	echo "\t\tWhite balance auto (on/off)=$WBTA_CAM"
 	echo "\t\tWhite balance temp. Kelvin=$WBT_CAM"
 	echo "\t\tPower line freq. (50/60Hz)=$PLF_CAM\n"
-	# Break for v4l2-ctl
-	for c in `seq 1 7`; do
-		sleep 1
-		echo "Please, wait $c seconds!"
-	done
 	# Ask
 	echo "\n================================================================================"
 	echo "Your current configuration is set to no. $LAST_CONFIG"
@@ -840,8 +842,11 @@ while [ true ] ; do
 		echo "================================================================================"
 		echo "Your current configuration is set to no. $LAST_CONFIG"
 		echo "================================================================================"
+		echo "IMPORTANT: IF YOU CHANGE THE PRESET TO ANOTHER RESOLUTION FROM A PREVIOUS LIVE"
+		echo "\tSTREAM, DO A HARD RESET (MEANS TURN OFF THE JETSON, UNPLUG IT"		
+		echo "\tFROM POWER, WAIT 30 SECONDS, REPLUG POWER AND TURN THE JETSON ON!"
 		echo "ENTER: You can delete the current preset with by typing 'DELETE' (in upper"
-		echo " cases) or enter the number of the preset you want to switch to or"
+		echo " cases) or enter the NUMBER of the preset you want to switch to or"
 		echo " create a new one:"
 		read CHOOSE_FIGURE
 		if [ "$CHOOSE_FIGURE" != "DELETE" ]; then
@@ -1935,37 +1940,7 @@ while [ true ] ; do
 	fi
 done
 
-# Adjust picture with video 4 linux 2 control
-v4l2-ctl \
-	--device=$V4L2SRC_CAMERA \
-        --set-ctrl=brightness=$BRIGHTNESS_CAM \
-        --set-ctrl=contrast=$CONTRAST_CAM \
-        --set-ctrl=saturation=$SATURATION_CAM \
-        --set-ctrl=white_balance_temperature_auto=$WBTA_CAM \
-        --set-ctrl=gain=$GAIN_CAM \
-        --set-ctrl=power_line_frequency=$PLF_CAM \
-        --set-ctrl=white_balance_temperature=$WBT_CAM
-
-echo "Adjusting camera settings."
-for f in `seq 1 7`; do
-	sleep 1
-	echo "Please, wait $f seconds!"
-done
-
-v4l2-ctl \
-	--device=$V4L2SRC_DEVICE \
-	--set-ctrl=brightness=$BRIGHTNESS \
-	--set-ctrl=contrast=$CONTRAST \
-	--set-ctrl=saturation=$SATURATION \
-	--set-ctrl=hue=$HUE
-
-echo "Adjusting picture color and brightness settings."
-for e in `seq 1 7`; do
-	sleep 1
-	echo "Please, wait $e seconds!"
-done
-
-# Check your webcam
+# Check your webcam start
 gst-launch-1.0 v4l2src \
 	device=$V4L2SRC_CAMERA \
 	io-mode=2 \
@@ -1989,8 +1964,6 @@ gst-launch-1.0 v4l2src \
 # Get the PID of the gestreamer pipeline
 PID_CAMERA_OVERLAY=$!
 
-sleep 3
-
 while [ true ]; do
 	echo "================================================================================\n"
 	echo "\tCheck a last time your webcam positioning with the overlay!\n"
@@ -2013,30 +1986,51 @@ done
 # Close overlay
 kill -s 15 $PID_CAMERA_OVERLAY
 
-for d in `seq 1 7`; do
+# Check your webcam end
+
+for a in `seq 1 8`; do
 	sleep 1
-	echo "Please, wait $d seconds. Try to flush the toilete!"
+	echo "Please, wait $a seconds!"
 done
 
-# Flush the toilet
-gst-launch-1.0 v4l2src \
-	device=$V4L2SRC_DEVICE \
-	io-mode=2 \
-	pixel-aspect-ratio=1/1 \
-! videoconvert \
-! xvimagesink \
-	window-width=${SCREEN_WIDTH} \
-	window-height=${SCREEN_HEIGHT} \
--e &
+# V4L2 Settings start
+echo "Video frame grabber format was: $V4L2SRC_DEVICE"
+v4l2-ctl -V --device=$V4L2SRC_DEVICE --get-parm
+echo "Video web camera format was: $V4L2SRC_CAMERA"
+v4l2-ctl -V --device=$V4L2SRC_CAMERA --get-parm
+# Set V4L2 frame grabber device
+v4l2-ctl \
+	--device=$V4L2SRC_CAMERA \
+        --set-ctrl=brightness=$BRIGHTNESS_CAM \
+        --set-ctrl=contrast=$CONTRAST_CAM \
+        --set-ctrl=saturation=$SATURATION_CAM \
+        --set-ctrl=white_balance_temperature_auto=$WBTA_CAM \
+        --set-ctrl=gain=$GAIN_CAM \
+        --set-ctrl=power_line_frequency=$PLF_CAM \
+        --set-ctrl=white_balance_temperature=$WBT_CAM \
+	--set-fmt-video=width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,pixelformat=MJPG \
+	--set-parm=$INPUT_FRAMERATE
+#	--set-fmt-video=width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,pixelformat=MJPG,colorspace=srgb
+# Set V4L2 camera device
+v4l2-ctl \
+	--device=$V4L2SRC_DEVICE \
+	--set-ctrl=brightness=$BRIGHTNESS \
+	--set-ctrl=contrast=$CONTRAST \
+	--set-ctrl=saturation=$SATURATION \
+	--set-ctrl=hue=$HUE \
+	--set-fmt-video=width=$SCREEN_WIDTH,height=$SCREEN_HEIGHT,pixelformat=MJPG \
+	--set-parm=$INPUT_FRAMERATE
+#	--set-fmt-video=width=$CAMERA_IN_WIDTH,height=$CAMERA_IN_HEIGHT,pixelformat=MJPG,colorspace=srgb
+# Formats set to
+echo "Video frame grabber format is: $V4L2SRC_DEVICE"
+v4l2-ctl -V --device=$V4L2SRC_DEVICE --get-parm
+echo "Video web camera format is: $V4L2SRC_CAMERA"
+v4l2-ctl -V --device=$V4L2SRC_CAMERA --get-parm
+# V4L2 Settings end
 
-PID_GSTREAMER_V4L2SRC_PREVIEW=$!
-
-for b in `seq 1 10`; do
-	sleep 1
-	echo "Please, wait ten seconds, $b, resetting the the NV hardware de-/encoders!"
-done
-kill -s 15 $PID_GSTREAMER_V4L2SRC_PREVIEW
-# Flushed, NVENC, NVDEC and NVJPEG cores resetted
+# Clean GStreamer cache
+rm -rf ${HOME}/.cache/gstreamer-1.0
+# End clean GStreamer cache
 
 for a in `seq 1 8`; do
 	sleep 1
