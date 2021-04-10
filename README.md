@@ -13,7 +13,10 @@ A video gaming device with up to 1080p output (PC, Xbox One, Xbox 360, Xbox, Pla
 optional, analog video to HDMI converters
 optional, Intel 8265NGW WiFi/Bluetooth Key-E M.2 module (others won't work with Ubuntu 18.04)
 
-Problems: Please, read the text file, "tested_resolutions.txt" and the Wiki!
+Problems: You've changed to another preset with other settings and another video input and/or camera resolution and you got only the test image from the HDMI2USB stick?
+
+VERY IMPORTANT: IF YOU'VE CHANGED THE VIDEO SETTINGS TO ANOTHER PRESET (RESOLUTION CHANGE), DO A REBOOT WITH HARD RESET (UNPLUG FROM POWER) BEFORE STREAMING! I CAN'T RESET THE NVENC, NVJPEG UNITS THROUGH A SOFTWARE FUNCTION AND IT KEEPS SOME OLD STUFF FROM THE PREVIOUSE SETTING IN ITS REGISTERS!
+
 
 If you got everything plugged and together, log into your Jetson Nano. Create a user account with a home directory. Open an xterminal (or command line window) and enter, git clone https://github.com/NibbleHalfebyte/livestream_with_jetson.git, which will download the shell script into the directory /home/<your user name>/livestream_with_jetson. Change into this directory with cd (for change directory), cd livestream_with_jetson (TAB key will complete file and directory names). This directory includes bg_black.0000.jpg (black background JPEG picture), grid.0000.jpg (simple grid b/w background), ingest_server.lst (a text copy of http://twitchstatus.com/, a GNU Public Licence text, a README.md text and the shell script livestream_with_jetson.sh. Make the shell script executable with the command chmod a+x livestream_with_jetson. After you've typed it check with ls -l (list with list option) if the script is executable. The output should look like: "-rwxrwxr-x 1 yourname yourgroup 104136 Apr 3 14:07 livestream_with_jetson.sh". Run (start) the script from your terminal window inside its directory by typing ./livestream_with_jetson.sh and pressing the return (or enter) key. The shell script is written in POSIX shell (file ending .sh for shell like Royal Dutch. (This oil company.)) and not bash, ash, zsh etc. A shell script is the UNI* version of a batch program under DOS.
 
