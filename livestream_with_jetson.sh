@@ -8,8 +8,8 @@
 #		  FROM THE PREVIOUSE SETTING IN ITS REGISTERS!
 #
 # File: livestream_with_jetson.sh 
-# Date: 2021-04-10
-# Version: 0.25-stable
+# Date: 2021-04-11
+# Version: 0.26
 # Developer: Marc Bayer
 # Email: marc.f.bayer@gmail.com
 #
@@ -1986,7 +1986,25 @@ done
 # Close overlay
 kill -s 15 $PID_CAMERA_OVERLAY
 
-# Check your webcam end
+# Flush the toilet
+gst-launch-1.0 v4l2src \
+	device=$V4L2SRC_DEVICE \
+	io-mode=2 \
+	pixel-aspect-ratio=1/1 \
+! videoconvert \
+! xvimagesink \
+	window-width=${SCREEN_WIDTH} \
+	window-height=${SCREEN_HEIGHT} \
+-e &
+
+PID_GSTREAMER_V4L2SRC_PREVIEW=$!
+
+for b in `seq 1 10`; do
+	sleep 1
+	echo "Please, wait ten seconds, $b, resetting the the NV hardware de-/encoders!"
+done
+kill -s 15 $PID_GSTREAMER_V4L2SRC_PREVIEW
+# Flushed, NVENC, NVDEC and NVJPEG cores resetted
 
 for a in `seq 1 8`; do
 	sleep 1
