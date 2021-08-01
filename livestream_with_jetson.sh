@@ -408,14 +408,14 @@ fi
 if ( grep -q "brightness.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	BRIGHTNESS=$(awk -v last=brightness.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "brightness.${LAST_CONFIG} -11" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "brightness.${LAST_CONFIG} 1" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	BRIGHTNESS=0
 fi
 
 if ( grep -q "contrast.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	CONTRAST=$(awk -v last=contrast.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "contrast.${LAST_CONFIG} 148" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "contrast.${LAST_CONFIG} 127" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	CONTRAST=0
 fi
 
@@ -429,7 +429,7 @@ fi
 if ( grep -q "saturation.$LAST_CONFIG" $CONFIG_DIR/$VIDEO_CONFIG_FILE ); then
 	SATURATION=$(awk -v last=saturation.$LAST_CONFIG 'BEGIN {pattern = last ltr} $1 ~ pattern { print $2 }' "${CONFIG_DIR}/${VIDEO_CONFIG_FILE}")
 else
-	echo "saturation.${LAST_CONFIG} 180" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
+	echo "saturation.${LAST_CONFIG} 137" >> $CONFIG_DIR/$VIDEO_CONFIG_FILE
 	SATURATION=0
 fi
 
@@ -1207,6 +1207,7 @@ while [ true ] ; do
 					# Uncomment command for development and testing
 
 						while [ true ]; do
+							echo "Try BRIGHTNESS=1 as default, if you're not sure"
 							echo "Enter a value between $BRIGHTNESS_MIN_VALUE < $BRIGHTNESS_DEFAULT_VALUE > $BRIGHTNESS_MAX_VALUE: BRIGHTNESS=\c"
 							read TMP_BRIGHTNESS_
 							if [ $TMP_BRIGHTNESS_ -ge $BRIGHTNESS_MIN_VALUE ] && [ $TMP_BRIGHTNESS_ -le $BRIGHTNESS_MAX_VALUE ]; then
@@ -1216,6 +1217,7 @@ while [ true ] ; do
 							fi
 						done
 						while [ true ]; do
+							echo "Try CONTRAST=127 as default, if you're not sure"
 							echo "Enter a value between $CONTRAST_MIN_VALUE < $CONTRAST_DEFAULT_VALUE > $CONTRAST_MAX_VALUE: CONTRAST=\c"
 							read TMP_CONTRAST_
 							if [ $TMP_CONTRAST_ -ge $CONTRAST_MIN_VALUE ] && [ $TMP_CONTRAST_ -le $CONTRAST_MAX_VALUE ]; then
@@ -1225,6 +1227,7 @@ while [ true ] ; do
 							fi
 						done
 						while [ true ]; do
+							echo "Try SATURATION=137 as default, if you're not sure"
 							echo "Enter a value between $SATURATION_MIN_VALUE < $SATURATION_DEFAULT_VALUE > $SATURATION_MAX_VALUE: SATURATION=\c"
 							read TMP_SATURATION_
 							if [ $TMP_SATURATION_ -ge $SATURATION_MIN_VALUE ] && [ $TMP_SATURATION_ -le $SATURATION_MAX_VALUE ]; then
@@ -1234,6 +1237,7 @@ while [ true ] ; do
 							fi
 						done
 						while [ true ]; do
+							echo "Try HUE=0 as default, if you're not sure"
 							echo "Enter a value between $HUE_MIN_VALUE < $HUE_DEFAULT_VALUE > $HUE_MAX_VALUE: HUE=\c"
 							read TMP_HUE_
 							if [ $TMP_HUE_ -ge $HUE_MIN_VALUE ] && [ $TMP_HUE_ -le $HUE_MAX_VALUE ]; then
