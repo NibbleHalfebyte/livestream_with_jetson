@@ -37,9 +37,9 @@ In the next dialog you will be asked about brightness, contrast, saturation and 
 
 I prefer (Macro Silicon 2109 15 bucks capture stick):
 
-brightness=-3 (default is too dark)
-contrast=148 (default)
-saturation=173 (default is too high)
+brightness=1 (default is too dark)
+contrast=127 (default)
+saturation=137 (default is too high)
 hue=0 (default)
 You will see 20 seconds the video signal from the capture card in an full screen overlay. Please, be patient. After, you can write ok or re-adjust the image. That's a little bit time consuming, because what you see on screen can vary with the result you see streamed on Twitch! Note values you think they are ok. And, be careful if you try to edit the values with an text editor directly in the videoconfig.cfg file!
 
